@@ -69,4 +69,19 @@ export const authService = {
       };
     }
   },
+
+  /**
+   * Get OTP for Driver or Passenger
+   */
+  getDriverPassengerOtp: async (phone: string, type: 'Driver' | 'Passenger'): Promise<any> => {
+    try {
+      const response = await apiClient.get(`${ENDPOINTS.CUSTOMER_CARE.GET_OTP}${phone}/${type}`);
+      return response.data;
+    } catch (error: any) {
+      throw {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Failed to get OTP',
+      };
+    }
+  },
 };

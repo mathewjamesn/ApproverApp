@@ -6,10 +6,12 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 
 export default function HomeScreen() {
+  const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = getStyles(colors);
@@ -55,7 +57,19 @@ export default function HomeScreen() {
           
           <View style={styles.qaGrid}>
             {QA_DATA.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.qaCard}>
+              <TouchableOpacity 
+                key={item.id} 
+                style={styles.qaCard}
+                onPress={() => {
+                  if (item.title === 'Trips') {
+                    navigation.navigate('Trips' as never);
+                  } else if (item.title === 'Drivers') {
+                    navigation.navigate('Drivers' as never);
+                  } else if (item.title === 'Get OTP') {
+                    navigation.navigate('GetOTP' as never);
+                  }
+                }}
+              >
                 <View style={[styles.qaIconContainer, { backgroundColor: item.bgColor }]}>
                   <Text style={styles.qaIcon}>{item.icon}</Text>
                 </View>

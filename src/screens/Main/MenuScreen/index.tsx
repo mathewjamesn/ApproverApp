@@ -40,7 +40,7 @@ export default function MenuScreen({ navigation }: any) {
 
          <View style={styles.card}>
             <MenuItem styles={styles} icon="🔔" title="Send Notification" />
-            <MenuItem styles={styles} icon="🔓" title="Get OTP" />
+            <MenuItem styles={styles} icon="🔓" title="Get OTP" onPress={() => navigation.navigate('GetOTP' as never)} />
             <MenuItem styles={styles} icon="🔀" title="Fare Multiplier" />
             <MenuItem styles={styles} icon="🛫" title="Airport Fare Multiplier" />
             <MenuItem styles={styles} icon="📍" title="Rate Per KM" />

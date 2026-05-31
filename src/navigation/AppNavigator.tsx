@@ -14,6 +14,7 @@ import MenuScreen from '../screens/Main/MenuScreen';
 import TripDetailsScreen from '../screens/Main/TripDetailsScreen';
 import DriverDetailsScreen from '../screens/Main/DriverDetailsScreen';
 import DriverVerificationDetailsScreen from '../screens/Main/DriverVerificationDetailsScreen';
+import GetOTPScreen from '../screens/Main/GetOTPScreen';
 import { useTheme } from '../theme/ThemeContext';
 
 const Stack = createNativeStackNavigator();
@@ -116,6 +117,7 @@ export default function AppNavigator() {
       <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
       <Stack.Screen name="DriverDetails" component={DriverDetailsScreen} />
       <Stack.Screen name="DriverVerificationDetails" component={DriverVerificationDetailsScreen} />
+      <Stack.Screen name="GetOTP" component={GetOTPScreen} />
     </Stack.Navigator>
   );
 }
