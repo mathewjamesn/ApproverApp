@@ -160,17 +160,17 @@ export default function OTPScreen({ route, navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
 
-      <FeedbackBottomSheet
-        visible={feedback.visible}
-        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
-        type={feedback.type}
-        title={feedback.title}
-        description={feedback.description}
-        showActionButton={true}
-        onAction={feedback.onAction}
-      />
+        <FeedbackBottomSheet
+          visible={feedback.visible}
+          onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+          type={feedback.type}
+          title={feedback.title}
+          description={feedback.description}
+          showActionButton={true}
+          onAction={feedback.onAction}
+        />
+      </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }

@@ -10,7 +10,6 @@ import {
   Keyboard,
   ActivityIndicator
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { authService } from '../../../services/api/authService';
@@ -18,7 +17,7 @@ import messaging from '@react-native-firebase/messaging';
 import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
 
 export default function LoginScreen({ navigation }: any) {
-  const insets = useSafeAreaInsets();
+
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
@@ -137,17 +136,17 @@ export default function LoginScreen({ navigation }: any) {
             </TouchableOpacity>
           </View>
         </View>
-      </KeyboardAvoidingView>
 
-      <FeedbackBottomSheet
-        visible={feedback.visible}
-        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
-        type={feedback.type}
-        title={feedback.title}
-        description={feedback.description}
-        showActionButton={true}
-        onAction={feedback.onAction}
-      />
+        <FeedbackBottomSheet
+          visible={feedback.visible}
+          onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+          type={feedback.type}
+          title={feedback.title}
+          description={feedback.description}
+          showActionButton={true}
+          onAction={feedback.onAction}
+        />
+      </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
 }
