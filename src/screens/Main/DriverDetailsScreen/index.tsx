@@ -5,6 +5,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService } from '../../../services/api/driverService';
+import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
 
 export default function DriverDetailsScreen() {
   const insets = useSafeAreaInsets();
@@ -22,6 +23,21 @@ export default function DriverDetailsScreen() {
   const [driverDetails, setDriverDetails] = useState<any>(null);
   const [driverDocuments, setDriverDocuments] = useState<any>(null);
 
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'confirm';
+    title: string;
+    description?: string;
+    onAction?: () => void;
+    actionButtonText?: string;
+    cancelButtonText?: string;
+    onCancelAction?: () => void;
+  }>({
+    visible: false,
+    type: 'success',
+    title: '',
+  });
+
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
 
@@ -30,20 +46,42 @@ export default function DriverDetailsScreen() {
   const handleBlockConfirm = async () => {
     const phone = driverDetails?.mobileNumber || driverDetails?.phone;
     if (!phone) {
-      Alert.alert("Error", "Driver phone number not found.");
       setIsBlockModalVisible(false);
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        description: 'Driver phone number not found.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
     setIsBlocking(true);
     try {
       await driverService.blockDriver(phone, !isBlocked);
-      Alert.alert("Success", `Driver has been successfully ${isBlocked ? 'unblocked' : 'blocked'}.`);
-      // Optimistically update the UI state
       setDriverDetails({ ...driverDetails, temporarilyBlockedForCancellation: !isBlocked });
       setIsBlockModalVisible(false);
+      setTimeout(() => {
+        setFeedback({
+          visible: true,
+          type: 'success',
+          title: 'Success',
+          description: `Driver has been successfully ${isBlocked ? 'unblocked' : 'blocked'}.`,
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
+      }, 300);
     } catch (error) {
       console.log("Block driver error:", error);
-      Alert.alert("Error", `Failed to ${isBlocked ? 'unblock' : 'block'} driver. Please try again.`);
+      setIsBlockModalVisible(false);
+      setTimeout(() => {
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          description: `Failed to ${isBlocked ? 'unblock' : 'block'} driver. Please try again.`,
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
+      }, 300);
     } finally {
       setIsBlocking(false);
     }
@@ -52,30 +90,51 @@ export default function DriverDetailsScreen() {
   const handleResetRideStatus = () => {
     const phone = driverDetails?.mobileNumber || driverDetails?.phone;
     if (!phone) {
-      Alert.alert("Error", "Driver phone number not found.");
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        description: 'Driver phone number not found.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
 
-    Alert.alert(
-      "Confirm Reset",
-      `Are you sure you want to reset the ride status for ${driverName}? This will reset any active rides they are stuck on.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Reset",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await driverService.resetDriverRideStatus(phone);
-              Alert.alert("Success", "Driver ride status has been reset successfully.");
-            } catch (error) {
-              console.log("Reset ride status error:", error);
-              Alert.alert("Error", "Failed to reset driver ride status. Please try again.");
-            }
-          }
+    setFeedback({
+      visible: true,
+      type: 'confirm',
+      title: 'Confirm Reset',
+      description: `Are you sure you want to reset the ride status for ${driverName}? This will reset any active rides they are stuck on.`,
+      actionButtonText: 'Reset',
+      cancelButtonText: 'Cancel',
+      onCancelAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      onAction: async () => {
+        setFeedback(prev => ({ ...prev, visible: false }));
+        try {
+          await driverService.resetDriverRideStatus(phone);
+          setTimeout(() => {
+            setFeedback({
+              visible: true,
+              type: 'success',
+              title: 'Success',
+              description: 'Driver ride status has been reset successfully.',
+              onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+            });
+          }, 300);
+        } catch (error) {
+          console.log("Reset ride status error:", error);
+          setTimeout(() => {
+            setFeedback({
+              visible: true,
+              type: 'error',
+              title: 'Error',
+              description: 'Failed to reset driver ride status. Please try again.',
+              onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+            });
+          }, 300);
         }
-      ]
-    );
+      }
+    });
   };
 
   useEffect(() => {
@@ -238,6 +297,19 @@ export default function DriverDetailsScreen() {
           </View>
         </View>
       </Modal>
+
+      <FeedbackBottomSheet
+        visible={feedback.visible}
+        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+        type={feedback.type}
+        title={feedback.title}
+        description={feedback.description}
+        showActionButton={true}
+        onAction={feedback.onAction}
+        actionButtonText={feedback.actionButtonText}
+        cancelButtonText={feedback.cancelButtonText}
+        onCancelAction={feedback.onCancelAction}
+      />
     </View>
   );
 }

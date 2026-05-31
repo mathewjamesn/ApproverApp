@@ -15,6 +15,7 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { authService } from '../../../services/api/authService';
 import messaging from '@react-native-firebase/messaging';
+import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
 
 export default function LoginScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -22,16 +23,31 @@ export default function LoginScreen({ navigation }: any) {
   const styles = getStyles(colors);
 
   const [phone, setPhone] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'confirm';
+    title: string;
+    description?: string;
+    onAction?: () => void;
+  }>({
+    visible: false,
+    type: 'error',
+    title: '',
+  });
 
   const handleProceed = async () => {
     if (phone.length < 10) {
-      setError('Please enter a valid 10-digit phone number');
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Please enter a valid 10-digit phone number',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
 
-    setError('');
     setIsLoading(true);
 
     try {
@@ -62,10 +78,14 @@ export default function LoginScreen({ navigation }: any) {
       // Navigate to OTP Screen
       navigation.navigate('OTP', { phone: `+91 ${phone}`, rawPhone: phone, fcmToken });
     } catch (err: any) {
-      console.log('error', err);
-
       setIsLoading(false);
-      setError(err.message || 'Verification failed. Please try again.');
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Login Error',
+        description: err.message || 'Verification failed. Please try again.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -100,12 +120,9 @@ export default function LoginScreen({ navigation }: any) {
                 value={phone}
                 onChangeText={(text) => {
                   setPhone(text.replace(/[^0-9]/g, ''));
-                  setError('');
                 }}
               />
             </View>
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity
               style={[styles.button, isLoading && { opacity: 0.7 }]}
@@ -121,6 +138,16 @@ export default function LoginScreen({ navigation }: any) {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <FeedbackBottomSheet
+        visible={feedback.visible}
+        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+        type={feedback.type}
+        title={feedback.title}
+        description={feedback.description}
+        showActionButton={true}
+        onAction={feedback.onAction}
+      />
     </TouchableWithoutFeedback>
   );
 }

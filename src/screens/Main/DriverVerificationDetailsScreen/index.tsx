@@ -8,6 +8,7 @@ import { driverService } from '../../../services/api/driverService';
 import DatePicker from 'react-native-date-picker';
 import { launchImageLibrary } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
 
 type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -49,6 +50,21 @@ export default function DriverVerificationDetailsScreen() {
   const [fullScreenImageURI, setFullScreenImageURI] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'confirm';
+    title: string;
+    description?: string;
+    onAction?: () => void;
+    actionButtonText?: string;
+    cancelButtonText?: string;
+    onCancelAction?: () => void;
+  }>({
+    visible: false,
+    type: 'success',
+    title: '',
+  });
 
   const PROFILE_REASONS = ["Incorrect Profile Photo", "Profile Photo Not Clear"];
   const LICENSE_REASONS = ["Driving License Expired", "Incorrect Drivers License", "Name Mismatch", "Driving License Not Clear"];
@@ -240,7 +256,12 @@ export default function DriverVerificationDetailsScreen() {
 
     const phone = driverDetails?.mobileNumber || driverDetails?.phone;
     if (!phone) {
-      Alert.alert("Error", "Driver phone number not found.");
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        description: 'Driver phone number not found.',
+      });
       return;
     }
 
@@ -251,42 +272,68 @@ export default function DriverVerificationDetailsScreen() {
     };
     const documentType = typeMapping[type];
 
-    Alert.alert(
-      "Confirm Upload",
-      `Are you sure you want to upload this new ${type} image?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Upload",
-          onPress: async () => {
-            setUploadingImage(type);
-            try {
-              await driverService.uploadDriverDocument(phone, documentType, uri);
-              Alert.alert("Success", `${type.charAt(0).toUpperCase() + type.slice(1)} image uploaded successfully!`);
-              // Clear local state so the upload button goes away and we know it's saved
-              setLocalImages(prev => ({ ...prev, [type]: null }));
-              // Ideally refetch details to get new URI, but we can just use the selected image
-              // by not clearing it or by refetching. Let's just alert success for now.
-            } catch (error) {
-              Alert.alert("Error", `Failed to upload ${type} image.`);
-            } finally {
-              setUploadingImage(null);
-            }
-          }
+    setFeedback({
+      visible: true,
+      type: 'confirm',
+      title: 'Confirm Upload',
+      description: `Are you sure you want to upload this new ${type} image?`,
+      actionButtonText: 'Upload',
+      cancelButtonText: 'Cancel',
+      onCancelAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      onAction: async () => {
+        setFeedback(prev => ({ ...prev, visible: false })); // close confirm modal first
+        setUploadingImage(type);
+        try {
+          await driverService.uploadDriverDocument(phone, documentType, uri);
+          setLocalImages(prev => ({ ...prev, [type]: null }));
+          // Show success feedback
+          setTimeout(() => {
+            setFeedback({
+              visible: true,
+              type: 'success',
+              title: 'Success',
+              description: `${type.charAt(0).toUpperCase() + type.slice(1)} image uploaded successfully!`,
+              onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+            });
+          }, 300); // small delay to allow previous modal to close smoothly
+        } catch (error) {
+          setTimeout(() => {
+            setFeedback({
+              visible: true,
+              type: 'error',
+              title: 'Error',
+              description: `Failed to upload ${type} image.`,
+              onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+            });
+          }, 300);
+        } finally {
+          setUploadingImage(null);
         }
-      ]
-    );
+      }
+    });
   };
 
   const submitVerification = async () => {
     if (profileStatus === 'PENDING' || licenseStatus === 'PENDING' || vehicleStatus === 'PENDING') {
-      Alert.alert("Incomplete", "Please approve or reject all sections before submitting.");
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Incomplete',
+        description: 'Please approve or reject all sections before submitting.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
     if ((profileStatus === 'REJECTED' && !profileReason) ||
       (licenseStatus === 'REJECTED' && !licenseReason) ||
       (vehicleStatus === 'REJECTED' && !vehicleReason)) {
-      Alert.alert("Missing Reason", "Please select a rejection reason for all rejected sections.");
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Missing Reason',
+        description: 'Please select a rejection reason for all rejected sections.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
 
@@ -309,14 +356,34 @@ export default function DriverVerificationDetailsScreen() {
       const result = await driverService.saveDriverVerification(payload);
 
       if (result && result?.status == 'Success' && result?.statusCode == 200) {
-        Alert.alert("Success", "Driver verification status submitted successfully!");
-        navigation.goBack();
+        setFeedback({
+          visible: true,
+          type: 'success',
+          title: 'Success',
+          description: 'Driver verification status submitted successfully!',
+          onAction: () => {
+            setFeedback(prev => ({ ...prev, visible: false }));
+            navigation.goBack();
+          },
+        });
       } else {
-        Alert.alert(result?.status || 'Error', result?.message || "Failed to save verification. Please try again.");
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: result?.status || 'Error',
+          description: result?.message || 'Failed to save verification. Please try again.',
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
       }
     } catch (error) {
       console.log("Save verification error", error);
-      Alert.alert("Error", "Failed to save verification. Please try again.");
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        description: 'Failed to save verification. Please try again.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
     } finally {
       setIsSaving(false);
     }
@@ -575,6 +642,19 @@ export default function DriverVerificationDetailsScreen() {
           )}
         </View>
       </Modal>
+
+      <FeedbackBottomSheet
+        visible={feedback.visible}
+        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+        type={feedback.type}
+        title={feedback.title}
+        description={feedback.description}
+        showActionButton={true}
+        onAction={feedback.onAction}
+        actionButtonText={feedback.actionButtonText}
+        cancelButtonText={feedback.cancelButtonText}
+        onCancelAction={feedback.onCancelAction}
+      />
     </View>
   );
 }

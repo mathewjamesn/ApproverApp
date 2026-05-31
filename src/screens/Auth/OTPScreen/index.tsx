@@ -16,6 +16,7 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { authService } from '../../../services/api/authService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
 
 export default function OTPScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -26,15 +27,30 @@ export default function OTPScreen({ route, navigation }: any) {
   const rawPhone = route.params?.rawPhone || '';
   const fcmToken = route.params?.fcmToken || '';
   const [otp, setOtp] = useState('');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'confirm';
+    title: string;
+    description?: string;
+    onAction?: () => void;
+  }>({
+    visible: false,
+    type: 'error',
+    title: '',
+  });
 
   const handleVerify = async () => {
     if (otp.length < 5) {
-      setError('Please enter a valid 4-digit OTP');
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Validation Error',
+        description: 'Please enter a valid 5-digit OTP', // it says 4-digit in text but length check is < 5, so it's a 5-digit OTP
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
       return;
     }
-    setError('');
     setIsLoading(true);
 
     try {
@@ -78,12 +94,24 @@ export default function OTPScreen({ route, navigation }: any) {
           })
         );
       } else {
-        setError('Authorization token missing in response');
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          description: 'Authorization token missing in response',
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
       }
     } catch (err: any) {
       console.log('OTP Verification Error', err);
       setIsLoading(false);
-      setError(err.message || 'Verification failed. Please try again.');
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Verification Error',
+        description: err.message || 'Verification failed. Please try again.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+      });
     }
   };
 
@@ -114,13 +142,10 @@ export default function OTPScreen({ route, navigation }: any) {
                 value={otp}
                 onChangeText={(text) => {
                   setOtp(text.replace(/[^0-9]/g, ''));
-                  setError('');
                 }}
                 textAlign="center"
               />
             </View>
-
-            {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
             <TouchableOpacity
               style={[styles.button, isLoading && { opacity: 0.7 }]}
@@ -136,6 +161,16 @@ export default function OTPScreen({ route, navigation }: any) {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <FeedbackBottomSheet
+        visible={feedback.visible}
+        onClose={() => setFeedback(prev => ({ ...prev, visible: false }))}
+        type={feedback.type}
+        title={feedback.title}
+        description={feedback.description}
+        showActionButton={true}
+        onAction={feedback.onAction}
+      />
     </TouchableWithoutFeedback>
   );
 }
