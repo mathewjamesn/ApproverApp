@@ -1,5 +1,5 @@
 import React from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
@@ -10,15 +10,15 @@ function AppContent() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <StatusBar 
-          barStyle={isDark ? 'light-content' : 'dark-content'} 
-          backgroundColor="transparent" 
-          translucent 
-        />
-        <AppNavigator />
-      </NavigationContainer>
-    </SafeAreaProvider>
+        <NavigationContainer>
+          <StatusBar
+            barStyle={isDark ? 'light-content' : 'dark-content'}
+            backgroundColor={Platform.OS === 'android' ? (isDark ? '#121212' : '#F5F7FA') : 'transparent'}
+            translucent={Platform.OS === 'ios'}
+          />
+          <AppNavigator />
+        </NavigationContainer>
+      </SafeAreaProvider>
   );
 }
 

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Text, View, ActivityIndicator } from 'react-native';
+import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import Screens
@@ -62,42 +62,68 @@ function MainTabs() {
 }
 
 export default function AppNavigator() {
+  const { colors } = useTheme();
   const [isLoading, setIsLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState('Login');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  useEffect(() => {
-    const checkToken = async () => {
-      try {
-        const token = await AsyncStorage.getItem('userToken');
-        if (token) {
-          setInitialRoute('Main');
-        }
-      } catch (e) {
-        // error reading token
-      }
+  const checkToken = useCallback(async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      setIsAuthenticated(!!token);
+    } catch (e) {
+      // error reading token — default to unauthenticated
+      setIsAuthenticated(false);
+    } finally {
       setIsLoading(false);
-    };
-    checkToken();
+    }
   }, []);
 
+  useEffect(() => {
+    checkToken();
+  }, [checkToken]);
+
   if (isLoading) {
+    // Use the same background color as the app to prevent white flash
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0000ff" />
+      <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <Stack.Navigator screenOptions={{
-      headerShown: false
-    }} initialRouteName={initialRoute}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="OTP" component={OTPScreen} />
-      <Stack.Screen name="Main" component={MainTabs} />
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        // Prevents the default slide animation which causes flickering on some Android devices
+        animation: 'fade',
+      }}
+      initialRouteName={isAuthenticated ? 'Main' : 'Login'}
+    >
+      {/* Auth screens — no animation between them for a smooth OTP flow */}
+      <Stack.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ animation: 'none' }}
+      />
+      <Stack.Screen
+        name="OTP"
+        component={OTPScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      {/* Main app screens */}
+      <Stack.Screen name="Main" component={MainTabs} options={{ animation: 'fade' }} />
       <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
       <Stack.Screen name="DriverDetails" component={DriverDetailsScreen} />
       <Stack.Screen name="DriverVerificationDetails" component={DriverVerificationDetailsScreen} />
     </Stack.Navigator>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

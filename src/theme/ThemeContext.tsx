@@ -22,7 +22,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const systemColorScheme = useColorScheme();
   const [theme, setTheme] = useState<ThemeType>('system');
 
-  const isDark = theme === 'system' ? systemColorScheme === 'dark' : theme === 'dark';
+  // useColorScheme() can return null on Android before the system resolves the preference.
+  // Default to 'light' in that case to prevent a theme flicker on first render.
+  const resolvedScheme = systemColorScheme ?? 'light';
+  const isDark = theme === 'system' ? resolvedScheme === 'dark' : theme === 'dark';
   const colors = isDark ? darkColors : lightColors;
 
   return (
