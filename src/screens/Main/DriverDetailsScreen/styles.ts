@@ -1,0 +1,129 @@
+import { StyleSheet } from 'react-native';
+import { ThemeColors } from '../../../theme/colors';
+
+export const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
+    backgroundColor: colors.primary,
+  },
+  backButton: {
+    padding: 8,
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primaryText,
+  },
+  content: {
+    padding: 24,
+  },
+  profileSection: {
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  avatarPlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  avatarText: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: colors.textSecondary,
+  },
+  driverName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 4,
+  },
+  driverStatus: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.info,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    marginBottom: 16,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginBottom: 32,
+  },
+  actionButton: {
+    width: '48%',
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+    minHeight: 100,
+  },
+  actionIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  actionIcon: {
+    fontSize: 20,
+  },
+  actionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    textAlign: 'center',
+  },
+  dangerZone: {
+    marginTop: 16,
+  },
+  dangerButton: {
+    flexDirection: 'row',
+    backgroundColor: colors.danger + '1A', // 10% opacity
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.danger + '4D', // 30% opacity
+  },
+  dangerButtonText: {
+    color: colors.danger,
+    fontWeight: '700',
+    fontSize: 15,
+    marginLeft: 8,
+  },
+});

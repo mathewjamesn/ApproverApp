@@ -1,0 +1,39 @@
+import { StyleSheet } from 'react-native';
+import { ThemeColors } from '../../../theme/colors';
+
+export const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 24,
+  },
+  backButton: { marginRight: 16 },
+  backText: { fontSize: 24, color: colors.primaryText, fontWeight: 'bold' },
+  title: { fontSize: 20, fontWeight: '700', color: colors.primaryText },
+  content: { padding: 24 },
+  section: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: colors.cardShadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 16 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  label: { fontSize: 14, color: colors.textSecondary, fontWeight: '500' },
+  value: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  statusBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, backgroundColor: colors.tabActiveBg },
+  statusText: { fontSize: 12, fontWeight: '700', color: colors.info, textTransform: 'capitalize' },
+  routeItem: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  routeLine: { width: 2, height: 30, backgroundColor: colors.border, marginLeft: 10, marginVertical: 4 },
+  locText: { flex: 1, fontSize: 15, color: colors.textPrimary, marginLeft: 12, fontWeight: '500' },
+});
