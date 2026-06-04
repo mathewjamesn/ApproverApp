@@ -24,5 +24,9 @@ export const ENDPOINTS = {
   },
   CUSTOMER_CARE: {
     GET_OTP: '/CustomerCare/GetDriverPassengerOtp/',
+  },
+  CONFIG: {
+    GET_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/GetCarFromAirportPercentageMultiplier',
+    UPDATE_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/UpdateCarFromAirportPercentageMultiplier/',
   }
 };

@@ -67,6 +67,8 @@ export default function HomeScreen() {
                     navigation.navigate('Drivers' as never);
                   } else if (item.title === 'Get OTP') {
                     navigation.navigate('GetOTP' as never);
+                  } else if (item.title === 'Airport Multiplier') {
+                    navigation.navigate('AirportFareMultiplier' as never);
                   }
                 }}
               >
