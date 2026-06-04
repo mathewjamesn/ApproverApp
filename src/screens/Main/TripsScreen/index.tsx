@@ -3,37 +3,35 @@ import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, K
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
-import { 
-  Trip, 
-  TripStatus, 
-  fetchRecentTrips, 
-  fetchTripsByDriver, 
+import {
+  Trip,
+  fetchRecentTrips,
+  fetchTripsByDriver,
   fetchTripsByPassenger,
-  fetchTripStatsToday 
+  fetchTripStatsToday
 } from '../../../services/api/tripsApi';
 
 type TabOption = 'recent' | 'driver' | 'passenger';
 
-const STATUS_FILTERS: { label: string, value: TripStatus | 'all' }[] = [
+const STATUS_FILTERS: { label: string, value: string }[] = [
   { label: 'All Trips', value: 'all' },
-  { label: 'Accepted', value: 'accepted' },
-  { label: 'Started', value: 'ride_started' },
-  { label: 'Completed', value: 'completed' },
-  { label: 'Cancelled (Passenger)', value: 'cancelled_passenger' },
-  { label: 'Cancelled (Driver)', value: 'cancelled_driver' },
-  { label: 'Rejected', value: 'rejected' },
-  { label: 'Skipped', value: 'skipped' },
+  { label: 'Completed', value: 'PaymentComplete' },
+  { label: 'Started', value: 'RideStarted' },
+  { label: 'Accepted', value: 'DriverAccepted' },
+  { label: 'Cancelled (Driver)', value: 'CancelledByDriver' },
+  { label: 'Cancelled (Passenger)', value: 'CancelledByPassenger' },
+  { label: 'Rejected', value: 'Rejected' },
 ];
 
 export default function TripsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = getStyles(colors);
-  
+
   const [activeTab, setActiveTab] = useState<TabOption>('recent');
-  const [activeStatus, setActiveStatus] = useState<TripStatus | 'all'>('all');
+  const [activeStatus, setActiveStatus] = useState<string>('all');
   const [searchPhone, setSearchPhone] = useState('');
-  
+
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0 });
@@ -43,7 +41,7 @@ export default function TripsScreen({ navigation }: any) {
     if (activeTab === 'recent') {
       loadTripsData();
     } else {
-      setTrips([]); 
+      setTrips([]);
     }
   }, [activeTab]);
 
@@ -72,8 +70,8 @@ export default function TripsScreen({ navigation }: any) {
     }
   };
 
-  const filteredTrips = trips.filter(trip => 
-    activeStatus === 'all' || trip.status === activeStatus
+  const filteredTrips = trips.filter(trip =>
+    activeStatus === 'all' || trip.tripStatus === activeStatus
   );
 
   const formatStatusDisplay = (status?: string) => {
@@ -82,32 +80,31 @@ export default function TripsScreen({ navigation }: any) {
   };
 
   const renderTripCard = ({ item }: { item: Trip }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.tripCard}
       onPress={() => navigation.navigate('TripDetails', { tripData: item })}
     >
       <View style={styles.cardHeaderRow}>
-        <Text style={styles.tripId}>{item.id || item.tripId || 'Unknown ID'}</Text>
         <View style={styles.statusBadge}>
-           <Text style={styles.statusText}>{formatStatusDisplay(item.status)}</Text>
+          <Text style={styles.statusText}>{formatStatusDisplay(item.tripStatus)}</Text>
         </View>
       </View>
-      
+
       <View style={styles.routeContainer}>
         <Text>🔵</Text>
-        <Text style={styles.locText} numberOfLines={1}>{item.pickup}</Text>
+        <Text style={styles.locText} numberOfLines={1}>{item.fromLocation}</Text>
       </View>
       <View style={{ marginLeft: 22 }}>
         <Text style={{ color: colors.border, marginTop: -6, marginBottom: -6 }}>|</Text>
       </View>
       <View style={styles.routeContainer}>
         <Text>🔴</Text>
-        <Text style={styles.locText} numberOfLines={1}>{item.dropoff}</Text>
+        <Text style={styles.locText} numberOfLines={1}>{item.toLocation}</Text>
       </View>
 
       <View style={styles.cardFooterRow}>
-        <Text style={styles.dateText}>{new Date(item.date).toLocaleString()}</Text>
-        <Text style={styles.fareText}>{item.fare}</Text>
+        <Text style={styles.dateText}>{new Date(item.createdOn || item.tripStartDate || Date.now()).toLocaleString()}</Text>
+        <Text style={styles.fareText}>₹{(item.finalFareAmount || 0).toFixed(2)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -120,19 +117,19 @@ export default function TripsScreen({ navigation }: any) {
       </View>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'recent' && styles.tabButtonActive]}
           onPress={() => setActiveTab('recent')}
         >
           <Text style={[styles.tabText, activeTab === 'recent' && styles.tabTextActive]}>Recent</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'driver' && styles.tabButtonActive]}
           onPress={() => setActiveTab('driver')}
         >
           <Text style={[styles.tabText, activeTab === 'driver' && styles.tabTextActive]}>By Driver</Text>
         </TouchableOpacity>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.tabButton, activeTab === 'passenger' && styles.tabButtonActive]}
           onPress={() => setActiveTab('passenger')}
         >
@@ -142,7 +139,7 @@ export default function TripsScreen({ navigation }: any) {
 
       {(activeTab === 'driver' || activeTab === 'passenger') && (
         <View style={styles.searchContainer}>
-          <TextInput 
+          <TextInput
             style={styles.searchInput}
             placeholder={`Enter ${activeTab === 'driver' ? 'Driver' : 'Passenger'} Phone`}
             placeholderTextColor={colors.textSecondary}
@@ -164,7 +161,7 @@ export default function TripsScreen({ navigation }: any) {
           contentContainerStyle={styles.filterScroll}
           keyExtractor={(item) => item.value}
           renderItem={({ item }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.filterPill, activeStatus === item.value && styles.filterPillActive]}
               onPress={() => setActiveStatus(item.value)}
             >
@@ -181,7 +178,7 @@ export default function TripsScreen({ navigation }: any) {
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : (
-        <FlatList 
+        <FlatList
           data={filteredTrips}
           keyExtractor={(item) => item.id}
           renderItem={renderTripCard}

@@ -21,6 +21,8 @@ export const ENDPOINTS = {
   },
   TRIPS: {
     GET_ALL: '/CustomerCare/GetTrips/',
+    GET_BY_DRIVER: '/Driver/',
+    GET_BY_PASSENGER: '/passenger/',
   },
   CUSTOMER_CARE: {
     GET_OTP: '/CustomerCare/GetDriverPassengerOtp/',
