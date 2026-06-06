@@ -103,8 +103,8 @@ export default function DriverDetailsScreen() {
           title: 'Success',
           description: 'Driver has been successfully deleted.',
           onAction: () => {
-             setFeedback(prev => ({ ...prev, visible: false }));
-             navigation.goBack();
+            setFeedback(prev => ({ ...prev, visible: false }));
+            navigation.goBack();
           },
         });
       }, 300);
@@ -286,7 +286,7 @@ export default function DriverDetailsScreen() {
               <Text style={styles.dangerButtonText}>{isBlocked ? "Unblock Driver" : "Block Driver"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[styles.dangerButton, { marginBottom: 40 }]}
               onPress={() => setIsDeleteModalVisible(true)}
             >
@@ -307,7 +307,7 @@ export default function DriverDetailsScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
           <View style={{ width: '85%', backgroundColor: colors.card, borderRadius: 16, padding: 24, alignItems: 'center' }}>
             <Text style={{ fontSize: 40, marginBottom: 16 }}>{isBlocked ? '✅' : '🚫'}</Text>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 8, textAlign: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8, textAlign: 'center' }}>
               Confirm {isBlocked ? 'Unblock' : 'Block'}
             </Text>
             <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
@@ -320,7 +320,7 @@ export default function DriverDetailsScreen() {
                 onPress={() => setIsBlockModalVisible(false)}
                 disabled={isBlocking}
               >
-                <Text style={{ color: colors.text, fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -348,7 +348,7 @@ export default function DriverDetailsScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
           <View style={{ width: '85%', backgroundColor: colors.card, borderRadius: 16, padding: 24, alignItems: 'center' }}>
             <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 8, textAlign: 'center' }}>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 8, textAlign: 'center' }}>
               Confirm Delete
             </Text>
             <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
@@ -361,7 +361,7 @@ export default function DriverDetailsScreen() {
                 onPress={() => setIsDeleteModalVisible(false)}
                 disabled={isDeleting}
               >
-                <Text style={{ color: colors.text, fontWeight: 'bold' }}>Cancel</Text>
+                <Text style={{ color: colors.textPrimary, fontWeight: 'bold' }}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

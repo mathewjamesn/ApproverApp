@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
@@ -8,7 +8,6 @@ import {
   fetchRecentTrips,
   fetchTripsByDriver,
   fetchTripsByPassenger,
-  fetchTripStatsToday
 } from '../../../services/api/tripsApi';
 
 type TabOption = 'recent' | 'driver' | 'passenger';
@@ -37,7 +36,6 @@ export default function TripsScreen({ navigation }: any) {
   const [stats, setStats] = useState({ total: 0 });
 
   useEffect(() => {
-    loadStats();
     if (activeTab === 'recent') {
       loadTripsData();
     } else {
@@ -45,10 +43,6 @@ export default function TripsScreen({ navigation }: any) {
     }
   }, [activeTab]);
 
-  const loadStats = async () => {
-    const data = await fetchTripStatsToday();
-    setStats(data);
-  };
 
   const loadTripsData = async () => {
     Keyboard.dismiss();
@@ -63,6 +57,7 @@ export default function TripsScreen({ navigation }: any) {
         data = await fetchTripsByPassenger(searchPhone);
       }
       setTrips(data);
+      setStats({ total: data.length });
     } catch (e) {
       console.log(e);
     } finally {
@@ -106,6 +101,24 @@ export default function TripsScreen({ navigation }: any) {
         <Text style={styles.dateText}>{new Date(item.createdOn || item.tripStartDate || Date.now()).toLocaleString()}</Text>
         <Text style={styles.fareText}>₹{(item.finalFareAmount || 0).toFixed(2)}</Text>
       </View>
+
+      {item.tripStatus === 'PaymentComplete' && (
+        <TouchableOpacity
+          style={styles.routeInfoButton}
+          onPress={() => {
+            const fromLat = item.fromAddress?.latitude;
+            const fromLng = item.fromAddress?.longitude;
+            const toLat = item.toAddress?.latitude;
+            const toLng = item.toAddress?.longitude;
+            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
+            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+            Linking.openURL(url);
+          }}
+        >
+          <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 

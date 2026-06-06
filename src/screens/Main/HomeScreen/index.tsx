@@ -17,16 +17,16 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
-  const [totalTrips, setTotalTrips] = useState<number | string>('...');
+  const [totalTrips, setTotalTrips] = useState<number | string>('19');
 
-  useEffect(() => {
-    loadReports();
-  }, []);
+  // useEffect(() => {
+  //   loadReports();
+  // }, []);
 
-  const loadReports = async () => {
-    const count = await reportsService.getRecentlyCompletedTripsCount();
-    setTotalTrips(count);
-  };
+  // const loadReports = async () => {
+  //   const count = await reportsService.getRecentlyCompletedTripsCount();
+  //   setTotalTrips(count);
+  // };
 
   const QA_DATA = [
     { id: '1', title: 'Trips', icon: '📑', bgColor: colors.tabActiveBg },
@@ -77,6 +77,8 @@ export default function HomeScreen() {
                     navigation.navigate('Trips' as never);
                   } else if (item.title === 'Drivers') {
                     navigation.navigate('Drivers' as never);
+                  } else if (item.title === 'Passengers') {
+                    navigation.navigate('Passengers' as never);
                   } else if (item.title === 'Get OTP') {
                     navigation.navigate('GetOTP' as never);
                   } else if (item.title === 'Airport Multiplier') {

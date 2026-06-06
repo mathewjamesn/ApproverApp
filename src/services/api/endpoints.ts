@@ -32,6 +32,12 @@ export const ENDPOINTS = {
     GET_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/GetCarFromAirportPercentageMultiplier',
     UPDATE_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/UpdateCarFromAirportPercentageMultiplier/',
   },
+  PASSENGER: {
+    GET_BY_MOBILE: '/Passenger/GetByMobileNumber/',
+    BLOCK: '/CustomerCare/BlockAndUnBlockPassenger/',
+    RESET_RIDE: '/Passenger/ResetRideStatus/',
+    DELETE: '/Passenger/Delete/',
+  },
   REPORTS: {
     RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/10',
   }

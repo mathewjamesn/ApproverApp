@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -164,6 +164,34 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
         </View>
       </ScrollView>
+
+      {tripData.tripStatus === 'PaymentComplete' && (
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary,
+            margin: 16,
+            paddingVertical: 16,
+            borderRadius: 14,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+          onPress={() => {
+            const fromLat = tripData.fromAddress?.latitude;
+            const fromLng = tripData.fromAddress?.longitude;
+            const toLat = tripData.toAddress?.latitude;
+            const toLng = tripData.toAddress?.longitude;
+            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(tripData.fromLocation || '');
+            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(tripData.toLocation || '');
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+            Linking.openURL(url);
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>🗺️</Text>
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

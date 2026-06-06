@@ -139,9 +139,3 @@ export const fetchTripsByPassenger = async (phone: string): Promise<Trip[]> => {
   }
 };
 
-export const fetchTripStatsToday = async () => {
-  await delay(500);
-  return {
-    total: 128,
-  };
-};

@@ -115,10 +115,10 @@ export default function DriversScreen() {
             style={{
               flex: 1,
               height: 48,
-              backgroundColor: colors.surface,
+              backgroundColor: colors.primaryText,
               borderRadius: 12,
               paddingHorizontal: 16,
-              color: colors.text,
+              color: colors.textPrimary,
               borderWidth: 1,
               borderColor: colors.border,
             }}

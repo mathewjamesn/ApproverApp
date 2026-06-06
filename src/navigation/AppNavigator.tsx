@@ -11,6 +11,7 @@ import HomeScreen from '../screens/Main/HomeScreen';
 import TripsScreen from '../screens/Main/TripsScreen';
 import DriversScreen from '../screens/Main/DriversScreen';
 import MenuScreen from '../screens/Main/MenuScreen';
+import PassengersScreen from '../screens/Main/PassengersScreen';
 import TripDetailsScreen from '../screens/Main/TripDetailsScreen';
 import DriverDetailsScreen from '../screens/Main/DriverDetailsScreen';
 import DriverVerificationDetailsScreen from '../screens/Main/DriverVerificationDetailsScreen';
@@ -113,8 +114,8 @@ export default function AppNavigator() {
         component={OTPScreen}
         options={{ animation: 'slide_from_right' }}
       />
-      {/* Main app screens */}
       <Stack.Screen name="Main" component={MainTabs} options={{ animation: 'fade' }} />
+      <Stack.Screen name="Passengers" component={PassengersScreen} />
       <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
       <Stack.Screen name="DriverDetails" component={DriverDetailsScreen} />
       <Stack.Screen name="DriverVerificationDetails" component={DriverVerificationDetailsScreen} />
