@@ -111,7 +111,7 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(() => resolve(un
 
 export const fetchRecentTrips = async (): Promise<any[]> => {
   try {
-    const response = await apiClient.get(`${ENDPOINTS.TRIPS.GET_ALL}250`);
+    const response = await apiClient.get(`${ENDPOINTS.TRIPS.GET_ALL}100`);
     return response.data || [];
   } catch (error) {
     console.log("Error fetching trips:", error);
