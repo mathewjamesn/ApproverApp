@@ -12,6 +12,7 @@ export const ENDPOINTS = {
     GET_DETAILS: '/Driver/Get/',
     GET_DOCUMENTS: '/CustomerCare/DriverDocuments/',
     BLOCK: '/CustomerCare/BlockAndUnBlockDriver/',
+    DELETE: '/Driver/Delete/',
     RESET_RIDE: '/Driver/ResetRideStatus/',
     SAVE_VERIFICATION: '/Driver/Save/true',
     UPLOAD_DOCUMENT: '/CustomerCare/UploadDriverDocuments/',
@@ -30,5 +31,8 @@ export const ENDPOINTS = {
   CONFIG: {
     GET_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/GetCarFromAirportPercentageMultiplier',
     UPDATE_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/UpdateCarFromAirportPercentageMultiplier/',
+  },
+  REPORTS: {
+    RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/10',
   }
 };

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
+import { reportsService } from '../../../services/api/reportsService';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = getStyles(colors);
+
+  const [totalTrips, setTotalTrips] = useState<number | string>('...');
+
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  const loadReports = async () => {
+    const count = await reportsService.getRecentlyCompletedTripsCount();
+    setTotalTrips(count);
+  };
 
   const QA_DATA = [
     { id: '1', title: 'Trips', icon: '📑', bgColor: colors.tabActiveBg },
@@ -54,11 +66,11 @@ export default function HomeScreen() {
 
         <View style={styles.contentContainer}>
           <Text style={styles.sectionTitle}>Quick Access</Text>
-          
+
           <View style={styles.qaGrid}>
             {QA_DATA.map((item) => (
-              <TouchableOpacity 
-                key={item.id} 
+              <TouchableOpacity
+                key={item.id}
                 style={styles.qaCard}
                 onPress={() => {
                   if (item.title === 'Trips') {
@@ -83,12 +95,11 @@ export default function HomeScreen() {
           <Text style={[styles.sectionTitle, { marginTop: 12 }]}>
             Today's Overview
           </Text>
-          
+
           <View style={styles.overviewGrid}>
             <View style={styles.overviewCard}>
               <Text style={styles.overviewTitle}>Total Trips</Text>
-              <Text style={styles.overviewValue}>128</Text>
-              <Text style={styles.overviewSubtitlePos}>↑ 12.5%</Text>
+              <Text style={styles.overviewValue}>{totalTrips}</Text>
             </View>
 
             <View style={styles.overviewCard}>

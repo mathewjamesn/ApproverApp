@@ -72,6 +72,15 @@ export const driverService = {
     }
   },
 
+  deleteDriver: async (id: string): Promise<any> => {
+    try {
+      const response = await apiClient.delete(`${ENDPOINTS.DRIVER.DELETE}${id}`);
+      return response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  },
+
   resetDriverRideStatus: async (phone: string): Promise<any> => {
     try {
       const response = await apiClient.post(`${ENDPOINTS.DRIVER.RESET_RIDE}${phone}`, {});

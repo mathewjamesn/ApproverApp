@@ -41,6 +41,9 @@ export default function DriverDetailsScreen() {
   const [isBlockModalVisible, setIsBlockModalVisible] = useState(false);
   const [isBlocking, setIsBlocking] = useState(false);
 
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const isBlocked = driverDetails?.temporarilyBlockedForCancellation || false;
 
   const handleBlockConfirm = async () => {
@@ -84,6 +87,41 @@ export default function DriverDetailsScreen() {
       }, 300);
     } finally {
       setIsBlocking(false);
+    }
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!driverId) return;
+    setIsDeleting(true);
+    try {
+      await driverService.deleteDriver(driverId);
+      setIsDeleteModalVisible(false);
+      setTimeout(() => {
+        setFeedback({
+          visible: true,
+          type: 'success',
+          title: 'Success',
+          description: 'Driver has been successfully deleted.',
+          onAction: () => {
+             setFeedback(prev => ({ ...prev, visible: false }));
+             navigation.goBack();
+          },
+        });
+      }, 300);
+    } catch (error) {
+      console.log("Delete driver error:", error);
+      setIsDeleteModalVisible(false);
+      setTimeout(() => {
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          description: 'Failed to delete driver. Please try again.',
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
+      }, 300);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -248,7 +286,10 @@ export default function DriverDetailsScreen() {
               <Text style={styles.dangerButtonText}>{isBlocked ? "Unblock Driver" : "Block Driver"}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.dangerButton, { marginBottom: 40 }]}>
+            <TouchableOpacity 
+              style={[styles.dangerButton, { marginBottom: 40 }]}
+              onPress={() => setIsDeleteModalVisible(true)}
+            >
               <Text>🗑️</Text>
               <Text style={styles.dangerButtonText}>Delete Driver</Text>
             </TouchableOpacity>
@@ -291,6 +332,47 @@ export default function DriverDetailsScreen() {
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <Text style={{ color: '#fff', fontWeight: 'bold' }}>{isBlocked ? 'Unblock' : 'Block'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={isDeleteModalVisible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setIsDeleteModalVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: '85%', backgroundColor: colors.card, borderRadius: 16, padding: 24, alignItems: 'center' }}>
+            <Text style={{ fontSize: 40, marginBottom: 16 }}>⚠️</Text>
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: colors.text, marginBottom: 8, textAlign: 'center' }}>
+              Confirm Delete
+            </Text>
+            <Text style={{ fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 }}>
+              Are you sure you want to permanently delete {driverName}? This action cannot be undone.
+            </Text>
+
+            <View style={{ flexDirection: 'row', width: '100%', gap: 12 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: colors.border, alignItems: 'center' }}
+                onPress={() => setIsDeleteModalVisible(false)}
+                disabled={isDeleting}
+              >
+                <Text style={{ color: colors.text, fontWeight: 'bold' }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: colors.danger, alignItems: 'center' }}
+                onPress={handleDeleteConfirm}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>Delete</Text>
                 )}
               </TouchableOpacity>
             </View>
