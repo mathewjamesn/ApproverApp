@@ -16,6 +16,7 @@ class MainActivity : ReactActivity() {
   override fun getMainComponentName(): String = "GMTApprover"
 
   override fun onCreate(savedInstanceState: Bundle?) {
+    setTheme(R.style.AppTheme)
     supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
     super.onCreate(savedInstanceState)
   }

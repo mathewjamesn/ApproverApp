@@ -1,0 +1,334 @@
+{
+  "project_info": {
+    "project_number": "1022038376575",
+    "firebase_url": "https://where-r-u-store.firebaseio.com",
+    "project_id": "where-r-u-store",
+    "storage_bucket": "where-r-u-store.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:cc4f2493c2635e8bee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.approve.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:b37fccc6d1ebb0feee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.approve.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:283595e0d5b8c029ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.driver.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:5b1c1a26ac7650b3ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.driver.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:8ab116a86f494050ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.passenger.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:b915292df6f402ecee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.astc.passenger.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:5ed4b68e5a9a4f00ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.hound.approve.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:1c816d3b52c4a15aee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.hound.driver.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:1644cc117f15572aee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.hound.driver.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:acab8fd815490160ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.huno.passenger"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:715b53a77774a511ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.huno.passenger.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:3412d7629e31f22eee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.approve.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:637aa2eec7dd5fc0ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.approve.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:aad1854640447834ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.driver.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:40d8ab8d79c60e81ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.driver.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:6d293f6a1d538298ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.passenger.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022038376575:android:b9dbc67871134932ee3f4a",
+        "android_client_info": {
+          "package_name": "com.gmt.whereru.passenger.staging"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyClCWPWz1sMPk6EsjyovcvEyjliS609yrs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

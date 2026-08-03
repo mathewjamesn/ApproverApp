@@ -10,6 +10,65 @@ export interface Driver {
   [key: string]: any; // Allow other fields to avoid strict type errors if backend returns more
 }
 
+export interface DriverLocation {
+  latitude: number;
+  longitude: number;
+  raw: any;
+}
+
+const parseCoordinateValue = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const extractDriverLocation = (payload: any): DriverLocation | null => {
+  const candidates = [payload, payload?.data, payload?.location, payload?.Location];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') {
+      continue;
+    }
+
+    const latitude = parseCoordinateValue(
+      candidate.latitude ??
+      candidate.Latitude ??
+      candidate.lat ??
+      candidate.Lat ??
+      candidate.locationLatitude ??
+      candidate.locationLat
+    );
+
+    const longitude = parseCoordinateValue(
+      candidate.longitude ??
+      candidate.Longitude ??
+      candidate.lng ??
+      candidate.Lng ??
+      candidate.lon ??
+      candidate.Lon ??
+      candidate.locationLongitude ??
+      candidate.locationLng
+    );
+
+    if (latitude !== null && longitude !== null) {
+      return {
+        latitude,
+        longitude,
+        raw: payload,
+      };
+    }
+  }
+
+  return null;
+};
+
 export const driverService = {
   getPendingDrivers: async (): Promise<Driver[]> => {
     try {
@@ -48,6 +107,15 @@ export const driverService = {
     try {
       const response = await apiClient.get(`${ENDPOINTS.DRIVER.GET_DETAILS}${id}/${partitionKey}`);
       return response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  },
+
+  getDriverLocationDetails: async (phone: string): Promise<DriverLocation | null> => {
+    try {
+      const response = await apiClient.get(`${ENDPOINTS.DRIVER.GET_LOCATION_DETAILS}${phone}/LocationDetails`);
+      return extractDriverLocation(response.data);
     } catch (error: any) {
       throw error;
     }

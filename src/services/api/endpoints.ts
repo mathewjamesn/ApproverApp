@@ -1,4 +1,5 @@
-export const API_BASE_URL = 'https://hound-functions-staging.azurewebsites.net/api';
+// export const API_BASE_URL = 'https://hound-functions-staging.azurewebsites.net/api';
+export const API_BASE_URL = 'https://tok-apim-prod.azure-api.net/api';
 
 export const ENDPOINTS = {
   AUTH: {
@@ -10,6 +11,7 @@ export const ENDPOINTS = {
     GET_REJECTED: '/CustomerCare/GetDrivers/Rejected',
     GET_BY_MOBILE: '/CustomerCare/GetByMobileNumber/',
     GET_DETAILS: '/Driver/Get/',
+    GET_LOCATION_DETAILS: '/Driver/',
     GET_DOCUMENTS: '/CustomerCare/DriverDocuments/',
     BLOCK: '/CustomerCare/BlockAndUnBlockDriver/',
     DELETE: '/Driver/Delete/',

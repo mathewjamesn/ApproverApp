@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Alert } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -45,6 +45,7 @@ export default function DriverDetailsScreen() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const isBlocked = driverDetails?.temporarilyBlockedForCancellation || false;
+  const driverPhoneNumber = driverDetails?.mobileNumber || driverDetails?.phone;
 
   const handleBlockConfirm = async () => {
     const phone = driverDetails?.mobileNumber || driverDetails?.phone;
@@ -262,6 +263,22 @@ export default function DriverDetailsScreen() {
                       status: driverStatus,
                       id: driverId,
                       partitionKey: partitionKey
+                    });
+                  } else if (action.id === 'locate') {
+                    if (!driverPhoneNumber) {
+                      setFeedback({
+                        visible: true,
+                        type: 'error',
+                        title: 'Location unavailable',
+                        description: 'Driver phone number not found.',
+                        onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+                      });
+                      return;
+                    }
+
+                    (navigation.navigate as any)('DriverLocation', {
+                      driverName,
+                      phoneNumber: driverPhoneNumber,
                     });
                   } else if (action.id === 'reset') {
                     handleResetRideStatus();

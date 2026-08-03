@@ -14,6 +14,7 @@ import MenuScreen from '../screens/Main/MenuScreen';
 import PassengersScreen from '../screens/Main/PassengersScreen';
 import TripDetailsScreen from '../screens/Main/TripDetailsScreen';
 import DriverDetailsScreen from '../screens/Main/DriverDetailsScreen';
+import DriverLocationScreen from '../screens/Main/DriverLocationScreen';
 import DriverVerificationDetailsScreen from '../screens/Main/DriverVerificationDetailsScreen';
 import GetOTPScreen from '../screens/Main/GetOTPScreen';
 import AirportFareMultiplierScreen from '../screens/Main/AirportFareMultiplierScreen';
@@ -73,7 +74,7 @@ export default function AppNavigator() {
     try {
       const token = await AsyncStorage.getItem('userToken');
       setIsAuthenticated(!!token);
-    } catch (e) {
+    } catch {
       // error reading token — default to unauthenticated
       setIsAuthenticated(false);
     } finally {
@@ -118,6 +119,7 @@ export default function AppNavigator() {
       <Stack.Screen name="Passengers" component={PassengersScreen} />
       <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
       <Stack.Screen name="DriverDetails" component={DriverDetailsScreen} />
+      <Stack.Screen name="DriverLocation" component={DriverLocationScreen} />
       <Stack.Screen name="DriverVerificationDetails" component={DriverVerificationDetailsScreen} />
       <Stack.Screen name="GetOTP" component={GetOTPScreen} />
       <Stack.Screen name="AirportFareMultiplier" component={AirportFareMultiplierScreen} />
