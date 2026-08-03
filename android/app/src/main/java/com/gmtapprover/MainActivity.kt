@@ -1,4 +1,4 @@
-package com.gmt.hound.approve.staging
+package com.gmt.tok.approve
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

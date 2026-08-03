@@ -78,9 +78,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace "com.gmt.hound.approve.staging"
+    namespace "com.gmt.tok.approve"
     defaultConfig {
-        applicationId "com.gmt.hound.approve.staging"
+        applicationId "com.gmt.tok.approve"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

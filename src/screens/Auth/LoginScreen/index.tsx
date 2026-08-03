@@ -15,10 +15,13 @@ import { getStyles } from './styles';
 import { authService } from '../../../services/api/authService';
 import messaging from '@react-native-firebase/messaging';
 import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
+import { useEnvironment } from '../../../context/EnvironmentContext';
+import { EnvironmentType } from '../../../config/environment';
 
 export default function LoginScreen({ navigation }: any) {
 
   const { colors } = useTheme();
+  const { environment, setEnvironment, isEnvironmentReady } = useEnvironment();
   const styles = getStyles(colors);
 
   const [phone, setPhone] = useState('');
@@ -36,6 +39,10 @@ export default function LoginScreen({ navigation }: any) {
   });
 
   const handleProceed = async () => {
+    if (!isEnvironmentReady) {
+      return;
+    }
+
     if (phone.length < 10) {
       setFeedback({
         visible: true,
@@ -50,6 +57,8 @@ export default function LoginScreen({ navigation }: any) {
     setIsLoading(true);
 
     try {
+      await setEnvironment(environment);
+
       // Request FCM permission and get token
       let fcmToken = '';
       try {
@@ -106,6 +115,36 @@ export default function LoginScreen({ navigation }: any) {
             <Text style={styles.headerTitle}>Welcome Back</Text>
             <Text style={styles.subtitle}>Enter your phone number to login</Text>
 
+            <View style={styles.environmentSection}>
+              <Text style={styles.environmentLabel}>Select application type</Text>
+              <View style={styles.environmentToggle}>
+                {(['PRODUCTION', 'STAGING'] as EnvironmentType[]).map((item) => {
+                  const isSelected = environment === item;
+
+                  return (
+                    <TouchableOpacity
+                      key={item}
+                      style={[
+                        styles.environmentOption,
+                        isSelected && styles.environmentOptionSelected,
+                      ]}
+                      onPress={() => setEnvironment(item)}
+                      disabled={isLoading}
+                    >
+                      <Text
+                        style={[
+                          styles.environmentOptionText,
+                          isSelected && styles.environmentOptionTextSelected,
+                        ]}
+                      >
+                        {item}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
             <View style={styles.inputWrapper}>
               <View style={styles.countryCodeContainer}>
                 <Text style={styles.countryCode}>+91</Text>
@@ -126,7 +165,7 @@ export default function LoginScreen({ navigation }: any) {
             <TouchableOpacity
               style={[styles.button, isLoading && { opacity: 0.7 }]}
               onPress={handleProceed}
-              disabled={isLoading}
+              disabled={isLoading || !isEnvironmentReady}
             >
               {isLoading ? (
                 <ActivityIndicator color="#FFFFFF" />

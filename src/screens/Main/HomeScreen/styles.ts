@@ -36,6 +36,22 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     opacity: 0.8,
     fontWeight: '400',
   },
+  environmentBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+  },
+  environmentBadgeText: {
+    color: colors.primaryText,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
   notificationIcon: {
     position: 'relative',
     marginTop: 4,

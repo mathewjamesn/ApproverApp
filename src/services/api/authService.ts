@@ -27,6 +27,10 @@ export interface VerifyOtpResponse {
   message?: string;
   data?: any;
   token?: string;
+  headers?: Array<{
+    key: string;
+    value: string[];
+  }>;
 }
 
 export const authService = {
@@ -46,7 +50,7 @@ export const authService = {
       // Return a structured error so the UI can easily display it
       throw {
         success: false,
-        message: error.response?.data?.message || error.message || 'Failed to login',
+        message: error.response?.data?.error || error.response?.data?.error?.message || error.message || 'Failed to login',
       };
     }
   },
@@ -61,7 +65,7 @@ export const authService = {
         payload
       );
       console.log("VERIFY OTP RESPONSE", response);
-      return response.data;
+      return response.data as VerifyOtpResponse;
     } catch (error: any) {
       throw {
         success: false,

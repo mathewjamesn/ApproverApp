@@ -4,13 +4,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { CommonActions } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEnvironment } from '../../../context/EnvironmentContext';
+import { getCurrentApiBaseUrl } from '../../../config/environment';
 
 export default function MenuScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors, theme, setTheme } = useTheme();
+  const { environment,  } = useEnvironment();
   const styles = getStyles(colors);
+  const url = getCurrentApiBaseUrl();
+  const word = new URL(url)?.hostname.split("-")?.[0];
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await AsyncStorage.multiRemove([
+      'userToken',
+      'userPhone',
+      'signInUniqueId',
+      'customerCareUserId',
+    ]);
     navigation.dispatch(
       CommonActions.reset({
         index: 0,
@@ -33,7 +45,10 @@ export default function MenuScreen({ navigation }: any) {
                </View>
                <View style={styles.profileTextContainer}>
                   <Text style={styles.profileName}>Admin User</Text>
-                  <Text style={styles.profileEmail}>admin@huno.com</Text>
+                  <Text style={styles.profileEmail}>admin@{word}.com</Text>
+                  <View style={styles.environmentPill}>
+                    <Text style={styles.environmentPillText}>{environment}</Text>
+                  </View>
                </View>
             </View>
          </View>
@@ -64,12 +79,12 @@ export default function MenuScreen({ navigation }: any) {
                   >
                      <Text style={[styles.themeBtnText, theme === 'dark' && styles.themeBtnTextActive]}>Dark</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
+                  {/* <TouchableOpacity 
                      style={[styles.themeBtn, theme === 'system' && styles.themeBtnActive]} 
                      onPress={() => setTheme('system')}
                   >
                      <Text style={[styles.themeBtnText, theme === 'system' && styles.themeBtnTextActive]}>Auto</Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity> */}
                </View>
             </View>
 

@@ -1,4 +1,4 @@
-package com.gmt.hound.approve.staging
+package com.gmt.tok.approve
 
 import android.app.Application
 import com.facebook.react.PackageList

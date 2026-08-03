@@ -10,11 +10,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { reportsService } from '../../../services/api/reportsService';
+import { useEnvironment } from '../../../context/EnvironmentContext';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const { environment } = useEnvironment();
   const styles = getStyles(colors);
 
   const [totalTrips, setTotalTrips] = useState<number | string>('19');
@@ -54,6 +56,9 @@ export default function HomeScreen() {
                 Hello, Admin <Text>👋</Text>
               </Text>
               <Text style={styles.greetingSubtitle}>Welcome back!</Text>
+              <View style={styles.environmentBadge}>
+                <Text style={styles.environmentBadgeText}>{environment}</Text>
+              </View>
             </View>
             <TouchableOpacity style={styles.notificationIcon}>
               <Text style={{ fontSize: 24, includeFontPadding: false }}>🔔</Text>

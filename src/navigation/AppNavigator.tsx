@@ -19,6 +19,7 @@ import DriverVerificationDetailsScreen from '../screens/Main/DriverVerificationD
 import GetOTPScreen from '../screens/Main/GetOTPScreen';
 import AirportFareMultiplierScreen from '../screens/Main/AirportFareMultiplierScreen';
 import { useTheme } from '../theme/ThemeContext';
+import { useEnvironment } from '../context/EnvironmentContext';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -67,6 +68,7 @@ function MainTabs() {
 
 export default function AppNavigator() {
   const { colors } = useTheme();
+  const { isEnvironmentReady } = useEnvironment();
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
@@ -86,7 +88,7 @@ export default function AppNavigator() {
     checkToken();
   }, [checkToken]);
 
-  if (isLoading) {
+  if (isLoading || !isEnvironmentReady) {
     // Use the same background color as the app to prevent white flash
     return (
       <View style={[styles.loadingContainer, { backgroundColor: colors.background }]}>

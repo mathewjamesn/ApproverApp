@@ -65,6 +65,22 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
   },
+  environmentPill: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    backgroundColor: colors.inputBg,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  environmentPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    letterSpacing: 0.4,
+  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -60,6 +60,40 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
     marginBottom: 32,
   },
+  environmentSection: {
+    marginBottom: 20,
+  },
+  environmentLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  environmentToggle: {
+    flexDirection: 'row',
+    backgroundColor: colors.inputBg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 4,
+  },
+  environmentOption: {
+    flex: 1,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  environmentOptionSelected: {
+    backgroundColor: colors.info,
+  },
+  environmentOptionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+  },
+  environmentOptionTextSelected: {
+    color: '#FFFFFF',
+  },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
