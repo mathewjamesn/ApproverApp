@@ -54,9 +54,9 @@ export default function MenuScreen({ navigation }: any) {
          </View>
 
          <View style={styles.card}>
-            <MenuItem styles={styles} icon="🔔" title="Send Notification" />
+            <MenuItem styles={styles} icon="🔔" title="Send Notification" onPress={() => navigation.navigate('SendNotification' as never)} />
             <MenuItem styles={styles} icon="🔓" title="Get OTP" onPress={() => navigation.navigate('GetOTP' as never)} />
-            <MenuItem styles={styles} icon="🔀" title="Fare Multiplier" />
+            <MenuItem styles={styles} icon="🔀" title="Fare Multiplier" onPress={() => navigation.navigate('FareMultiplier' as never)} />
             <MenuItem styles={styles} icon="🛫" title="Airport Fare Multiplier" onPress={() => navigation.navigate('AirportFareMultiplier' as never)} />
             <MenuItem styles={styles} icon="📍" title="Rate Per KM" />
             <MenuItem styles={styles} icon="📊" title="App Statistics" isLast={true} />

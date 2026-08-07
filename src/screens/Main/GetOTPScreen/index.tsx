@@ -82,7 +82,7 @@ export default function GetOTPScreen() {
       setFeedback({
         visible: true,
         type: 'error',
-        title: 'Request Failed',
+        title: 'Invalid User',
         description: err.message || 'Failed to get OTP. Please try again.',
       });
     } finally {

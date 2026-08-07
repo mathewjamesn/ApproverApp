@@ -18,6 +18,8 @@ import DriverLocationScreen from '../screens/Main/DriverLocationScreen';
 import DriverVerificationDetailsScreen from '../screens/Main/DriverVerificationDetailsScreen';
 import GetOTPScreen from '../screens/Main/GetOTPScreen';
 import AirportFareMultiplierScreen from '../screens/Main/AirportFareMultiplierScreen';
+import FareMultiplierScreen from '../screens/Main/FareMultiplierScreen';
+import SendNotificationScreen from '../screens/Main/SendNotificationScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { useEnvironment } from '../context/EnvironmentContext';
 
@@ -125,6 +127,8 @@ export default function AppNavigator() {
       <Stack.Screen name="DriverVerificationDetails" component={DriverVerificationDetailsScreen} />
       <Stack.Screen name="GetOTP" component={GetOTPScreen} />
       <Stack.Screen name="AirportFareMultiplier" component={AirportFareMultiplierScreen} />
+      <Stack.Screen name="FareMultiplier" component={FareMultiplierScreen} />
+      <Stack.Screen name="SendNotification" component={SendNotificationScreen} />
     </Stack.Navigator>
   );
 }

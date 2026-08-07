@@ -7,7 +7,7 @@ export const ENDPOINTS = {
     VERIFY_OTP: '/Auth/CustomerCareUserSignIn',
   },
   DRIVER: {
-    GET_PENDING: '/CustomerCare/GetDrivers/NotVerified',
+    GET_PENDING: '/CustomerCare/GetDrivers/NotVerified/125',
     GET_REJECTED: '/CustomerCare/GetDrivers/Rejected',
     GET_BY_MOBILE: '/CustomerCare/GetByMobileNumber/',
     GET_DETAILS: '/Driver/Get/',
@@ -33,6 +33,8 @@ export const ENDPOINTS = {
   CONFIG: {
     GET_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/GetCarFromAirportPercentageMultiplier',
     UPDATE_AIRPORT_FARE_MULTIPLIER: '/CustomerCare/UpdateCarFromAirportPercentageMultiplier/',
+    GET_PARTITION_KEYS: '/CustomerCare/GetConfigurationPartitionKeys',
+    UPDATE_OVERALL_MULTIPLIER: '/CustomerCare/UpdateOverAllMultiplier/',
   },
   PASSENGER: {
     GET_BY_MOBILE: '/Passenger/GetByMobileNumber/',
@@ -42,5 +44,8 @@ export const ENDPOINTS = {
   },
   REPORTS: {
     RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/10',
+  },
+  NOTIFICATION: {
+    SEND_NOTIFICATION: '/Notification/SendNotification/false',
   }
 };

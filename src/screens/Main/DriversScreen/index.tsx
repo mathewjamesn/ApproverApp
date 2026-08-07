@@ -151,7 +151,7 @@ export default function DriversScreen() {
             {drivers.map((driver, idx) => {
               const displayName = driver.firstName + " " + driver.lastName || 'N/A';
               const displayPhone = driver.mobileNumber || 'N/A';
-              const displayStatus = activeTab;
+              const displayStatus = driver.status || activeTab;
 
               return (
                 <TouchableOpacity
@@ -161,7 +161,7 @@ export default function DriversScreen() {
                     if (activeTab === 'ACTIVE') {
                       (navigation.navigate as any)('DriverDetails', {
                         driverName: displayName,
-                        status: displayStatus,
+                        status: driver.status,
                         id: driver.id,
                         partitionKey: driver.partitionKey || 'Kerala'
                       });
@@ -187,7 +187,7 @@ export default function DriversScreen() {
                     </View>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '1A' }]}>
                       <Text style={[styles.statusText, { color: getStatusColor(displayStatus) }]}>
-                        {displayStatus}
+                        {activeTab === 'ACTIVE' ? driver.status || 'NA' : displayStatus}
                       </Text>
                     </View>
                   </View>

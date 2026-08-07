@@ -82,9 +82,10 @@ export const authService = {
       const response = await apiClient.get(`${ENDPOINTS.CUSTOMER_CARE.GET_OTP}${phone}/${type}`);
       return response.data;
     } catch (error: any) {
+      const errorResponse = error.response?.data;
       throw {
         success: false,
-        message: error.response?.data?.message || error.message || 'Failed to get OTP',
+        message: errorResponse?.otp === "" ? type + " does not have an OTP" : 'Failed to get OTP',
       };
     }
   },

@@ -88,6 +88,10 @@ export default function HomeScreen() {
                     navigation.navigate('GetOTP' as never);
                   } else if (item.title === 'Airport Multiplier') {
                     navigation.navigate('AirportFareMultiplier' as never);
+                  } else if (item.title === 'Fare Multiplier') {
+                    navigation.navigate('FareMultiplier' as never);
+                  } else if (item.title === 'Send Notification') {
+                    navigation.navigate('SendNotification' as never);
                   }
                 }}
               >

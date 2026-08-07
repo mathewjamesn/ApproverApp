@@ -15,7 +15,7 @@ export default function DriverDetailsScreen() {
   const styles = getStyles(colors);
 
   const driverName = (route.params as any)?.driverName || 'Unknown Driver';
-  const driverStatus = (route.params as any)?.status || 'Pending';
+  const driverStatus = (route.params as any)?.status || 'NA';
   const driverId = (route.params as any)?.id;
   const partitionKey = (route.params as any)?.partitionKey || 'Kerala';
 
