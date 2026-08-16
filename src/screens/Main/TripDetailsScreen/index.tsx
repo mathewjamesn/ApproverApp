@@ -136,7 +136,31 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Phone</Text>
-            <Text style={styles.value}>{tripData.driverMobileNumber || '--'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={styles.value}>{tripData.driverMobileNumber || '--'}</Text>
+              {tripData.driverMobileNumber && tripData.driverMobileNumber !== '--' && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = tripData.driverMobileNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📞</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = tripData.driverMobileNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>💬</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Vehicle Type</Text>
@@ -156,7 +180,31 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Phone</Text>
-            <Text style={styles.value}>{tripData.passengerMobileNumber || '--'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Text style={styles.value}>{tripData.passengerMobileNumber || '--'}</Text>
+              {tripData.passengerMobileNumber && tripData.passengerMobileNumber !== '--' && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = tripData.passengerMobileNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📞</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = tripData.passengerMobileNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>💬</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Passenger ID</Text>

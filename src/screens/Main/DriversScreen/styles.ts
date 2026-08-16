@@ -147,4 +147,35 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '700',
     fontSize: 14,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  searchButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchIconText: {
+    fontSize: 18,
+  },
+  searchBarContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 12,
+  },
+  cancelButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  cancelButtonText: {
+    color: colors.primaryText,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

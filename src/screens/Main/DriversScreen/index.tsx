@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService, Driver } from '../../../services/api/driverService';
 
-type FilterTab = 'PENDING' | 'REJECTED' | 'ACTIVE';
+type FilterTab = 'PENDING' | 'REJECTED';
 
 export default function DriversScreen() {
   const insets = useSafeAreaInsets();
@@ -17,7 +17,12 @@ export default function DriversScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Search states
+  const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Driver[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchDrivers = async () => {
     setIsLoading(true);
@@ -29,13 +34,6 @@ export default function DriversScreen() {
       } else if (activeTab === 'REJECTED') {
         const data = await driverService.getRejectedDrivers();
         setDrivers(data);
-      } else if (activeTab === 'ACTIVE') {
-        if (searchQuery.trim().length > 0) {
-          const data = await driverService.getActiveDriverByPhone(searchQuery.trim());
-          setDrivers(data);
-        } else {
-          setDrivers([]);
-        }
       }
     } catch (error) {
       console.log('Error fetching drivers', error);
@@ -44,33 +42,49 @@ export default function DriversScreen() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab !== 'ACTIVE') {
-      fetchDrivers();
-    } else if (activeTab === 'ACTIVE' && searchQuery.trim().length === 0) {
-      setDrivers([]);
+  const handleSearch = async (queryToSearch?: string) => {
+    const query = (queryToSearch !== undefined ? queryToSearch : searchQuery).trim();
+    if (query.length !== 10) return;
+    setIsSearching(true);
+    setSearchResults([]);
+    try {
+      const data = await driverService.getActiveDriverByPhone(query);
+      setSearchResults(data);
+    } catch (error) {
+      console.log('Error searching drivers', error);
+    } finally {
+      setIsSearching(false);
     }
-  }, [activeTab]);
+  };
+
+  useEffect(() => {
+    if (!isSearchActive) {
+      fetchDrivers();
+    }
+  }, [activeTab, isSearchActive]);
+
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length === 10) {
+      const timer = setTimeout(() => {
+        handleSearch(query);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
 
   useFocusEffect(
     useCallback(() => {
       // Refresh data whenever screen gains focus
-      if (activeTab !== 'ACTIVE') {
+      if (!isSearchActive) {
         fetchDrivers();
-      } else if (activeTab === 'ACTIVE' && searchQuery.trim().length > 0) {
-        fetchDrivers();
-      } else if (activeTab === 'ACTIVE' && searchQuery.trim().length === 0) {
-        setDrivers([]);
+      } else if (searchQuery.trim().length == 10) {
+        handleSearch();
       }
-      // No cleanup needed
-    }, [activeTab])
+    }, [activeTab, isSearchActive, searchQuery])
   );
-
-  const handleSearch = () => {
-    if (activeTab === 'ACTIVE' && searchQuery.trim().length > 0) {
-      fetchDrivers();
-    }
-  };
 
   const formatInitials = (name?: string) => {
     if (!name) return '??';
@@ -78,143 +92,258 @@ export default function DriversScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
+    switch (status?.toUpperCase()) {
       case 'PENDING': return colors.info;
       case 'REJECTED': return colors.danger;
-      case 'ACTIVE': return colors.success;
+      case 'ACTIVE':
+      case 'APPROVED': return colors.success;
       default: return colors.textSecondary;
     }
   };
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
-        <Text style={styles.headerTitle}>Drivers</Text>
-        <Text style={styles.statsSubtitle}>
-          {activeTab === 'ACTIVE' ? 'Active Drivers' : `${drivers.length} ${activeTab === 'PENDING' ? 'Pending Verifications' : 'Rejected Drivers'}`}
-        </Text>
-      </View>
+      {isSearchActive ? (
+        <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
+          <View style={styles.searchBarContainer}>
+            <TextInput
+              style={{
+                flex: 1,
+                height: 40,
+                backgroundColor: colors.inputBg,
+                borderRadius: 20,
+                paddingHorizontal: 16,
+                fontSize: 14,
+                color: colors.textPrimary,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              placeholder="Search by phone number..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              keyboardType="phone-pad"
+              onSubmitEditing={() => handleSearch()}
+              autoFocus
+            />
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setIsSearchActive(false);
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.headerTitle}>Drivers</Text>
+              <Text style={styles.statsSubtitle}>
+                {`${drivers.length} ${activeTab === 'PENDING' ? 'Pending Verifications' : 'Rejected Drivers'}`}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => setIsSearchActive(true)}
+            >
+              <Text style={styles.searchIconText}>🔍</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
 
-      <View style={styles.tabsContainer}>
-        {(['PENDING', 'REJECTED', 'ACTIVE'] as FilterTab[]).map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab.charAt(0) + tab.slice(1).toLowerCase()}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      {activeTab === 'ACTIVE' && (
-        <View style={{ paddingHorizontal: 16, marginVertical: 16, flexDirection: 'row', gap: 10 }}>
-          <TextInput
-            style={{
-              flex: 1,
-              height: 48,
-              backgroundColor: colors.primaryText,
-              borderRadius: 12,
-              paddingHorizontal: 16,
-              color: colors.textPrimary,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
-            placeholder="Search by phone number..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            keyboardType="phone-pad"
-            onSubmitEditing={handleSearch}
-          />
-          <TouchableOpacity
-            style={{
-              backgroundColor: colors.primary,
-              justifyContent: 'center',
-              paddingHorizontal: 10,
-              borderRadius: 12
-            }}
-            onPress={handleSearch}
-          >
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Search</Text>
-          </TouchableOpacity>
+      {!isSearchActive && (
+        <View style={styles.tabsContainer}>
+          {(['PENDING', 'REJECTED'] as FilterTab[]).map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
+              onPress={() => setActiveTab(tab)}
+            >
+              <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 
       <ScrollView contentContainerStyle={styles.listContent}>
-        {isLoading ? (
-          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
-        ) : (
-          <>
-            {drivers.map((driver, idx) => {
-              const displayName = driver.firstName + " " + driver.lastName || 'N/A';
-              const displayPhone = driver.mobileNumber || 'N/A';
-              const displayStatus = driver.status || activeTab;
+        {isSearchActive ? (
+          isSearching ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <>
+              {searchResults.map((driver, idx) => {
+                const displayName = (driver.firstName || '') + " " + (driver.lastName || '') || 'N/A';
+                const displayPhone = driver.mobileNumber || 'N/A';
+                const displayStatus = driver.verificationStatus || driver.status || 'Unknown';
 
-              return (
-                <TouchableOpacity
-                  key={driver.id || idx.toString()}
-                  style={styles.driverCard}
-                  onPress={() => {
-                    if (activeTab === 'ACTIVE') {
-                      (navigation.navigate as any)('DriverDetails', {
-                        driverName: displayName,
-                        status: driver.status,
-                        id: driver.id,
-                        partitionKey: driver.partitionKey || 'Kerala'
-                      });
-                    } else {
+                return (
+                  <TouchableOpacity
+                    key={driver.id || idx.toString()}
+                    style={styles.driverCard}
+                    onPress={() => {
+                      if (driver.verificationStatus !== 'Approved') {
+                        (navigation.navigate as any)('DriverVerificationDetails', {
+                          driverName: displayName,
+                          status: displayStatus,
+                          id: driver.id,
+                          partitionKey: driver.partitionKey || 'Kerala'
+                        });
+                      } else {
+                        (navigation.navigate as any)('DriverDetails', {
+                          driverName: displayName,
+                          status: displayStatus,
+                          id: driver.id,
+                          partitionKey: driver.partitionKey || 'Kerala'
+                        });
+                      }
+                    }}
+                  >
+                    <View style={styles.driverCardContent}>
+                      <View style={styles.driverInfo}>
+                        <View style={styles.avatarPlaceholder}>
+                          <Text style={styles.avatarText}>{formatInitials(displayName)}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.driverName}>{displayName}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
+                            <Text style={styles.driverPhone}>{displayPhone}</Text>
+                            {displayPhone !== 'N/A' && displayPhone !== '--' && (
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
+                                    Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                                  }}
+                                  style={{ padding: 4 }}
+                                >
+                                  <Text style={{ fontSize: 16 }}>📞</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
+                                    Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                                  }}
+                                  style={{ padding: 4 }}
+                                >
+                                  <Text style={{ fontSize: 16 }}>💬</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                        </View>
+                      </View>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '1A' }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(displayStatus) }]}>
+                          {displayStatus}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+              {searchResults.length === 0 && (
+                <View style={{ alignItems: 'center', marginTop: 40 }}>
+                  <Text style={{ color: colors.textSecondary }}>
+                    {searchQuery.trim().length === 0 ? 'Enter a phone number to search.' : 'No driver found.'}
+                  </Text>
+                </View>
+              )}
+            </>
+          )
+        ) : (
+          isLoading ? (
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          ) : (
+            <>
+              {drivers.map((driver, idx) => {
+                const displayName = (driver.firstName || '') + " " + (driver.lastName || '') || 'N/A';
+                const displayPhone = driver.mobileNumber || 'N/A';
+                const displayStatus = driver.status || activeTab;
+
+                return (
+                  <TouchableOpacity
+                    key={driver.id || idx.toString()}
+                    style={styles.driverCard}
+                    onPress={() => {
                       (navigation.navigate as any)('DriverVerificationDetails', {
                         driverName: displayName,
                         status: displayStatus,
                         id: driver.id,
                         partitionKey: driver.partitionKey || 'Kerala'
                       });
-                    }
-                  }}
-                >
-                  <View style={styles.driverCardContent}>
-                    <View style={styles.driverInfo}>
-                      <View style={styles.avatarPlaceholder}>
-                        <Text style={styles.avatarText}>{formatInitials(displayName)}</Text>
+                    }}
+                  >
+                    <View style={styles.driverCardContent}>
+                      <View style={styles.driverInfo}>
+                        <View style={styles.avatarPlaceholder}>
+                          <Text style={styles.avatarText}>{formatInitials(displayName)}</Text>
+                        </View>
+                        <View>
+                          <Text style={styles.driverName}>{displayName}</Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 12 }}>
+                            <Text style={styles.driverPhone}>{displayPhone}</Text>
+                            {displayPhone !== 'N/A' && displayPhone !== '--' && (
+                              <View style={{ flexDirection: 'row', gap: 8 }}>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
+                                    Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                                  }}
+                                  style={{ padding: 4 }}
+                                >
+                                  <Text style={{ fontSize: 16 }}>📞</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
+                                    Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                                  }}
+                                  style={{ padding: 4 }}
+                                >
+                                  <Text style={{ fontSize: 16 }}>💬</Text>
+                                </TouchableOpacity>
+                              </View>
+                            )}
+                          </View>
+                        </View>
                       </View>
-                      <View>
-                        <Text style={styles.driverName}>{displayName}</Text>
-                        <Text style={styles.driverPhone}>{displayPhone}</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '1A' }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(displayStatus) }]}>
+                          {displayStatus}
+                        </Text>
                       </View>
                     </View>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(displayStatus) + '1A' }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(displayStatus) }]}>
-                        {activeTab === 'ACTIVE' ? driver.status || 'NA' : displayStatus}
-                      </Text>
-                    </View>
-                  </View>
 
-                  {activeTab === 'PENDING' && (
-                    <View style={styles.driverCardActions}>
-                      <TouchableOpacity style={[styles.inlineActionBtn, styles.inlineActionBtnReject]}>
-                        <Text style={styles.inlineActionBtnText}>Reject</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={[styles.inlineActionBtn, styles.inlineActionBtnApprove]}>
-                        <Text style={styles.inlineActionBtnText}>Approve</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              )
-            })}
-            {drivers.length === 0 && (
-              <View style={{ alignItems: 'center', marginTop: 40 }}>
-                <Text style={{ color: colors.textSecondary }}>
-                  {activeTab === 'ACTIVE'
-                    ? (searchQuery.trim().length === 0 ? 'Enter a phone number to search.' : 'No active driver found.')
-                    : 'No drivers found in this category.'}
-                </Text>
-              </View>
-            )}
-          </>
+                    {activeTab === 'PENDING' && (
+                      <View style={styles.driverCardActions}>
+                        <TouchableOpacity style={[styles.inlineActionBtn, styles.inlineActionBtnReject]}>
+                          <Text style={styles.inlineActionBtnText}>Reject</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.inlineActionBtn, styles.inlineActionBtnApprove]}>
+                          <Text style={styles.inlineActionBtnText}>Approve</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+              {drivers.length === 0 && (
+                <View style={{ alignItems: 'center', marginTop: 40 }}>
+                  <Text style={{ color: colors.textSecondary }}>
+                    No drivers found in this category.
+                  </Text>
+                </View>
+              )}
+            </>
+          )
         )}
       </ScrollView>
     </View>

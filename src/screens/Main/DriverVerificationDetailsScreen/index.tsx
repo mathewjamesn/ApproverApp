@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -346,9 +346,9 @@ export default function DriverVerificationDetailsScreen() {
         licenseExpiryDate: licenseExpiryDate ? licenseExpiryDate.toISOString() : driverDetails?.licenseExpiryDate,
         insuranceValidTillDate: insuranceExpiryDate ? insuranceExpiryDate.toISOString() : driverDetails?.insuranceValidTillDate,
         vehiclePermitValidTillDate: permitExpiryDate ? permitExpiryDate.toISOString() : driverDetails?.vehiclePermitValidTillDate,
-        profileImageComments: profileStatus === 'APPROVED' ? profileStatus : profileReason,
-        driverLicenseComments: licenseStatus === 'APPROVED' ? licenseStatus : licenseReason,
-        vehicleComments: vehicleStatus === 'APPROVED' ? vehicleStatus : vehicleReason,
+        profileImageComments: profileStatus === 'APPROVED' ? 'Approved' : profileReason,
+        driverLicenseComments: licenseStatus === 'APPROVED' ? 'Approved' : licenseReason,
+        vehicleComments: vehicleStatus === 'APPROVED' ? 'Approved' : vehicleReason,
         verificationStatus: profileStatus === 'APPROVED' && licenseStatus === 'APPROVED' && vehicleStatus === 'APPROVED' ? 'Approved' : 'Rejected',
         approvedBy: userPhone || ''
       };
@@ -404,6 +404,64 @@ export default function DriverVerificationDetailsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
+
+          {/* Driver Contact Info */}
+          {driverDetails?.mobileNumber && (
+            <View style={{
+              backgroundColor: colors.card,
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 16,
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border
+            }}>
+              <View>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: colors.textSecondary, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>Driver Contact</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary }}>{driverDetails?.mobileNumber}</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    const cleanPhone = driverDetails?.mobileNumber?.replace(/[^\d+]/g, '');
+                    Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                  }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.tabActiveBg,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>📞</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    const cleanPhone = driverDetails?.mobileNumber?.replace(/[^\d+]/g, '');
+                    Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                  }}
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 20,
+                    backgroundColor: colors.tabActiveBg,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderWidth: 1,
+                    borderColor: colors.border
+                  }}
+                >
+                  <Text style={{ fontSize: 18 }}>💬</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* SECTION 1: Profile */}
           <View style={styles.sectionCard}>

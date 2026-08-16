@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -207,6 +207,16 @@ export default function DriverDetailsScreen() {
       .toUpperCase();
   };
 
+  const formatDateTime = (dateTimeStr?: string) => {
+    if (!dateTimeStr) return 'N/A';
+    try {
+      const date = new Date(dateTimeStr);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch {
+      return dateTimeStr;
+    }
+  };
+
   const actions = [
     { id: 'verification', title: 'View Details', icon: '🔍' },
     { id: 'locate', title: 'Locate Driver', icon: '📍' },
@@ -248,6 +258,42 @@ export default function DriverDetailsScreen() {
             )}
             <Text style={styles.driverName}>{driverName}</Text>
             <Text style={styles.driverStatus}>{driverStatus}</Text>
+            {driverPhoneNumber && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 10 }}>
+                <Text style={{ fontSize: 15, color: colors.textSecondary }}>{driverPhoneNumber}</Text>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = driverPhoneNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📞</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = driverPhoneNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>💬</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+            {driverDetails && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 }}>
+                <Text style={{ fontSize: 16 }}>⭐</Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.textPrimary }}>
+                  {driverDetails.overAllRating !== undefined ? Number(driverDetails.overAllRating).toFixed(1) : '0.0'}
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.textSecondary }}>
+                  ({driverDetails.totalRatingsReceived || 0} {driverDetails.totalRatingsReceived === 1 ? 'rating' : 'ratings'})
+                </Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.sectionTitle}>Management Actions</Text>
@@ -291,6 +337,52 @@ export default function DriverDetailsScreen() {
                 <Text style={styles.actionText}>{action.title}</Text>
               </TouchableOpacity>
             ))}
+          </View>
+
+          <Text style={styles.sectionTitle}>Driver Statistics & Report</Text>
+          <View style={styles.reportCard}>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>App Version Installed</Text>
+              <Text style={styles.reportValue}>{driverDetails?.currentAppVersionInstalled || 'N/A'}</Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Ride Requests (This Month)</Text>
+              <Text style={styles.reportValue}>{driverDetails?.numberOfRideRequestReceivedThisMonth ?? 0}</Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Trips Pending Payment</Text>
+              <Text style={styles.reportValue}>{driverDetails?.numberOfTripsPendingPayment ?? 0}</Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Daily Cancel Count</Text>
+              <Text style={styles.reportValue}>{driverDetails?.rideCancelCountForTheDay ?? 0}</Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Unpaid Kilometers</Text>
+              <Text style={styles.reportValue}>
+                {driverDetails?.totalKilometersCompletedWithoutPayment !== undefined && driverDetails?.totalKilometersCompletedWithoutPayment !== null
+                  ? `${driverDetails.totalKilometersCompletedWithoutPayment} KM`
+                  : '0 KM'}
+              </Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Payments Verified</Text>
+              <Text style={[styles.reportValue, { color: driverDetails?.hasPaymentsBeenVerified ? colors.success : colors.danger }]}>
+                {driverDetails?.hasPaymentsBeenVerified ? 'Yes' : 'No'}
+              </Text>
+            </View>
+            <View style={styles.reportRow}>
+              <Text style={styles.reportLabel}>Device Info</Text>
+              <Text style={styles.reportValue}>
+                {driverDetails?.deviceMake
+                  ? `${driverDetails.deviceMake} (OS ${driverDetails.deviceOsVersion || 'N/A'})`
+                  : 'N/A'}
+              </Text>
+            </View>
+            <View style={styles.reportRowLast}>
+              <Text style={styles.reportLabel}>Last Completed Trip</Text>
+              <Text style={styles.reportValue}>{formatDateTime(driverDetails?.lastTripCompletedDateTime)}</Text>
+            </View>
           </View>
 
           <Text style={styles.sectionTitle}>Danger Zone</Text>

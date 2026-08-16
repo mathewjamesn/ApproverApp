@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Keyboard } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Keyboard, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -49,23 +49,15 @@ export default function PassengersScreen() {
 
   const isBlocked = passenger?.temporarilyBlockedForCancellation || false;
 
-  const handleSearch = async () => {
-    if (!phoneSearch || phoneSearch.length < 10) {
-      setFeedback({
-        visible: true,
-        type: 'error',
-        title: 'Invalid Input',
-        description: 'Please enter a valid phone number.',
-        onAction: () => setFeedback(prev => ({ ...prev, visible: false }))
-      });
-      return;
-    }
+  const handleSearch = async (queryToSearch?: string) => {
+    const query = (queryToSearch !== undefined ? queryToSearch : phoneSearch).trim();
+    if (query.length !== 10) return;
 
     Keyboard.dismiss();
     setIsSearching(true);
     setPassenger(null);
     try {
-      const data = await passengerService.getPassengerByMobile(phoneSearch);
+      const data = await passengerService.getPassengerByMobile(query);
       if (data && data.mobileNumber) {
         setPassenger(data);
       } else {
@@ -90,6 +82,33 @@ export default function PassengersScreen() {
       setIsSearching(false);
     }
   };
+
+  const handleManualSearch = () => {
+    const query = phoneSearch.trim();
+    if (query.length !== 10) {
+      setFeedback({
+        visible: true,
+        type: 'error',
+        title: 'Invalid Input',
+        description: 'Please enter a valid 10-digit phone number.',
+        onAction: () => setFeedback(prev => ({ ...prev, visible: false }))
+      });
+      return;
+    }
+    handleSearch(query);
+  };
+
+  useEffect(() => {
+    const query = phoneSearch.trim();
+    if (query.length === 10) {
+      const timer = setTimeout(() => {
+        handleSearch(query);
+      }, 500);
+      return () => clearTimeout(timer);
+    } else {
+      setPassenger(null);
+    }
+  }, [phoneSearch]);
 
   const handleClear = () => {
     setPhoneSearch('');
@@ -220,14 +239,14 @@ export default function PassengersScreen() {
             keyboardType="phone-pad"
             value={phoneSearch}
             onChangeText={setPhoneSearch}
-            onSubmitEditing={handleSearch}
+            onSubmitEditing={handleManualSearch}
           />
           {phoneSearch.length > 0 && (
             <TouchableOpacity style={styles.clearButton} onPress={handleClear}>
               <Text style={styles.buttonText}>✕</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.searchButton} onPress={handleSearch} disabled={isSearching}>
+          <TouchableOpacity style={styles.searchButton} onPress={handleManualSearch} disabled={isSearching}>
             {isSearching ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Search</Text>}
           </TouchableOpacity>
         </View>
@@ -242,7 +261,31 @@ export default function PassengersScreen() {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Phone Number</Text>
-                <Text style={styles.value}>{passenger.mobileNumber}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={styles.value}>{passenger.mobileNumber}</Text>
+                  {passenger.mobileNumber && passenger.mobileNumber !== '--' && (
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const cleanPhone = passenger.mobileNumber.replace(/[^\d+]/g, '');
+                          Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                        }}
+                        style={{ padding: 4 }}
+                      >
+                        <Text style={{ fontSize: 16 }}>📞</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => {
+                          const cleanPhone = passenger.mobileNumber.replace(/[^\d+]/g, '');
+                          Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                        }}
+                        style={{ padding: 4 }}
+                      >
+                        <Text style={{ fontSize: 16 }}>💬</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Email</Text>

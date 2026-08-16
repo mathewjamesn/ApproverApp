@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View, Linking } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -103,7 +103,31 @@ console.log('response', response);
             ) : null}
             <Text style={styles.locationValue}>Latitude: {location.latitude.toFixed(6)}</Text>
             <Text style={styles.locationValue}>Longitude: {location.longitude.toFixed(6)}</Text>
-            <Text style={styles.locationValue}>Phone: {phoneNumber}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+              <Text style={styles.locationValue}>Phone: {phoneNumber}</Text>
+              {phoneNumber && phoneNumber !== '--' && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>📞</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
+                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                    }}
+                    style={{ padding: 4 }}
+                  >
+                    <Text style={{ fontSize: 16 }}>💬</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
             {errorMessage ? (
               <Text style={styles.previewHelper}>{errorMessage}</Text>
             ) : null}

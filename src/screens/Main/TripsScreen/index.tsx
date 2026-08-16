@@ -35,26 +35,22 @@ export default function TripsScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
   const [stats, setStats] = useState({ total: 0 });
 
-  useEffect(() => {
-    if (activeTab === 'recent') {
-      loadTripsData();
-    } else {
-      setTrips([]);
-    }
-  }, [activeTab]);
-
-
-  const loadTripsData = async () => {
+  const loadTripsData = async (queryToSearch?: string) => {
     Keyboard.dismiss();
     setIsLoading(true);
     try {
       let data: Trip[] = [];
       if (activeTab === 'recent') {
         data = await fetchRecentTrips();
-      } else if (activeTab === 'driver') {
-        data = await fetchTripsByDriver(searchPhone);
-      } else if (activeTab === 'passenger') {
-        data = await fetchTripsByPassenger(searchPhone);
+      } else {
+        const query = (queryToSearch !== undefined ? queryToSearch : searchPhone).trim();
+        if (query.length === 10) {
+          if (activeTab === 'driver') {
+            data = await fetchTripsByDriver(query);
+          } else if (activeTab === 'passenger') {
+            data = await fetchTripsByPassenger(query);
+          }
+        }
       }
       setTrips(data);
       setStats({ total: data.length });
@@ -64,6 +60,23 @@ export default function TripsScreen({ navigation }: any) {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (activeTab === 'recent') {
+      loadTripsData();
+    } else {
+      const query = searchPhone.trim();
+      if (query.length === 10) {
+        const timer = setTimeout(() => {
+          loadTripsData(query);
+        }, 500);
+        return () => clearTimeout(timer);
+      } else {
+        setTrips([]);
+        setStats({ total: 0 });
+      }
+    }
+  }, [activeTab, searchPhone]);
 
   const filteredTrips = trips.filter(trip =>
     activeStatus === 'all' || trip.tripStatus === activeStatus
@@ -126,7 +139,7 @@ export default function TripsScreen({ navigation }: any) {
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Trips Monitor</Text>
-        <Text style={styles.statsSubtitle}>Today's Total Trips: {stats.total}</Text>
+        <Text style={styles.statsSubtitle}>Total Trips: {stats.total}</Text>
       </View>
 
       <View style={styles.tabsContainer}>
