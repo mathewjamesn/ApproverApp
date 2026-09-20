@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Linking } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Linking, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -398,12 +398,22 @@ export default function DriverVerificationDetailsScreen() {
         <Text style={styles.headerTitle}>Verification: {driverName}</Text>
       </View>
 
-      {isLoading ? (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={styles.content}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+        {isLoading ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
 
           {/* Driver Contact Info */}
           {driverDetails?.mobileNumber && (
@@ -633,8 +643,9 @@ export default function DriverVerificationDetailsScreen() {
             </TouchableOpacity>
           </View>
 
-        </ScrollView>
-      )}
+          </ScrollView>
+        )}
+      </KeyboardAvoidingView>
 
       <DatePicker
         modal

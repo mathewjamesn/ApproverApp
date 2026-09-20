@@ -151,7 +151,8 @@ export default function FareMultiplierScreen() {
     }}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -167,6 +168,7 @@ export default function FareMultiplierScreen() {
           </View>
         ) : (
           <ScrollView
+            style={{ flex: 1 }}
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}

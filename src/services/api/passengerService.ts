@@ -37,5 +37,29 @@ export const passengerService = {
   deletePassenger: async (id: string, partitionKey: string): Promise<any> => {
     const response = await apiClient.delete(`${ENDPOINTS.PASSENGER.DELETE}${id}/${partitionKey}`);
     return response.data;
+  },
+  getPassengerCount: async (): Promise<number> => {
+    try {
+      const response = await apiClient.get(ENDPOINTS.PASSENGER.GET_COUNT);
+      if (typeof response.data === 'number') {
+        return response.data;
+      }
+      if (typeof response.data === 'string') {
+        const parsed = parseInt(response.data, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      if (response.data && typeof response.data === 'object') {
+        const val = response.data.count ?? response.data.total ?? response.data.passengerCount ?? response.data.totalCount;
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          const parsed = parseInt(val, 10);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+      }
+      return 0;
+    } catch (error) {
+      console.log('Error fetching passenger count:', error);
+      return 0;
+    }
   }
 };

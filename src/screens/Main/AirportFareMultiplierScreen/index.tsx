@@ -9,6 +9,7 @@ import {
   TouchableWithoutFeedback,
   Keyboard,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -121,7 +122,8 @@ export default function AirportFareMultiplierScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <KeyboardAvoidingView
         style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -136,7 +138,12 @@ export default function AirportFareMultiplierScreen() {
             <Text style={{ color: colors.textSecondary, marginTop: 16 }}>Fetching current value...</Text>
           </View>
         ) : (
-          <View style={styles.content}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={styles.content}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
             <Text style={styles.label}>Multiplier Value (%)</Text>
             <View style={styles.inputWrapper}>
               <View style={styles.inputPrefix}>
@@ -180,7 +187,7 @@ export default function AirportFareMultiplierScreen() {
                 <Text style={styles.buttonText}>Apply</Text>
               )}
             </TouchableOpacity>
-          </View>
+          </ScrollView>
         )}
 
         <FeedbackBottomSheet

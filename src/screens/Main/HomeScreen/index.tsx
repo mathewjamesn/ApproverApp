@@ -10,8 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
-import { reportsService, RegistrationSummary, RegistrationObject } from '../../../services/api/reportsService';
+import { reportsService, RegistrationSummary, RegistrationObject, RecentlyCompletedTripsData, CompletedTripDayReport } from '../../../services/api/reportsService';
+import { passengerService } from '../../../services/api/passengerService';
 import { useEnvironment } from '../../../context/EnvironmentContext';
+
+const TRIP_DAYS_OPTIONS = [1, 2, 5, 10];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -22,34 +25,39 @@ export default function HomeScreen() {
 
   const [activeCategory, setActiveCategory] = useState<'DRIVER' | 'PASSENGER' | 'TRIPS'>('DRIVER');
   const [registrationData, setRegistrationData] = useState<RegistrationObject | null>(null);
+  const [selectedTripDays, setSelectedTripDays] = useState<number>(5);
+  const [tripsReportData, setTripsReportData] = useState<RecentlyCompletedTripsData | null>(null);
   const [isReportsLoading, setIsReportsLoading] = useState(false);
 
   const fetchReportsData = async (cat: 'DRIVER' | 'PASSENGER' | 'TRIPS') => {
     setIsReportsLoading(true);
     try {
-      const summaryResponse = await reportsService.getDriverRegistrationSummary();
-      const summary = summaryResponse?.find((item) => item.state === "Kerala");
-      if (!summary) return;
       if (cat === 'DRIVER') {
-        setRegistrationData(summary);
+        const summaryResponse = await reportsService.getDriverRegistrationSummary();
+        const summary = summaryResponse?.find((item) => item.state === "Kerala");
+        if (summary) setRegistrationData(summary);
       } else if (cat === 'PASSENGER') {
+        let passengerCount = 0;
+        try {
+          passengerCount = await passengerService.getPassengerCount();
+        } catch (e) {
+          console.log('Error getting passenger count', e);
+        }
         setRegistrationData({
-          totalRegistered: Math.round(summary.totalRegistered * 3.5),
-          approved: Math.round(summary.approved * 4.2),
-          pendingVerification: Math.round(summary.pendingVerification * 2),
-          documentPending: Math.round(summary.documentPending * 1.5),
-          rejected: Math.round(summary.rejected * 2),
-          state: summary.state,
+          totalRegistered: passengerCount,
+          approved: 0,
+          pendingVerification: 0,
+          documentPending: 0,
+          rejected: 0,
+          state: 'Kerala',
         });
-      } else {
-        setRegistrationData({
-          totalRegistered: Math.round(summary.totalRegistered * 8),
-          approved: Math.round(summary.approved * 15),
-          pendingVerification: Math.round(summary.pendingVerification * 4),
-          documentPending: Math.round(summary.documentPending * 3),
-          rejected: Math.round(summary.rejected * 8),
-          state: summary.state,
-        });
+      } else if (cat === 'TRIPS') {
+        try {
+          const tripsData = await reportsService.getRecentlyCompletedTripsReport(selectedTripDays);
+          setTripsReportData(tripsData);
+        } catch (e) {
+          console.log('Error getting trips report', e);
+        }
       }
     } catch (error) {
       console.log('Error loading registration summary:', error);
@@ -60,7 +68,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchReportsData(activeCategory);
-  }, [activeCategory]);
+  }, [activeCategory, selectedTripDays]);
 
   const QA_DATA = [
     { id: '1', title: 'Trips', icon: '📑', bgColor: colors.tabActiveBg },
@@ -232,96 +240,255 @@ export default function HomeScreen() {
           </View>
 
           <View style={styles.detailCard}>
-            <Text style={styles.detailCardTitle}>{config.title}</Text>
+            <Text style={styles.detailCardTitle}>
+              {activeCategory === 'TRIPS'
+                ? 'Completed Trips Report'
+                : activeCategory === 'PASSENGER'
+                ? 'Passenger Summary'
+                : 'Driver Registration Summary'}
+            </Text>
 
             {isReportsLoading ? (
               <View style={{ height: 200, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color={colors.primary} />
               </View>
+            ) : activeCategory === 'TRIPS' ? (
+              <>
+                <View style={{ marginBottom: 16 }}>
+                  <Text style={styles.chartLabel}>Select Days Range</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                    {TRIP_DAYS_OPTIONS.map((days) => (
+                      <TouchableOpacity
+                        key={days}
+                        style={{
+                          paddingHorizontal: 16,
+                          paddingVertical: 8,
+                          borderRadius: 20,
+                          backgroundColor: selectedTripDays === days ? colors.primary : colors.inputBg,
+                          borderWidth: 1,
+                          borderColor: selectedTripDays === days ? colors.primary : colors.border,
+                        }}
+                        onPress={() => setSelectedTripDays(days)}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: '600',
+                            color: selectedTripDays === days ? '#FFFFFF' : colors.textPrimary,
+                          }}
+                        >
+                          {days === 1 ? '1 Day' : `${days} Days`}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.totalBanner}>
+                  <Text style={styles.totalLabel}>
+                    Total Completed Trips ({selectedTripDays === 1 ? 'Last 1 Day' : `Last ${selectedTripDays} Days`})
+                  </Text>
+                  <Text style={styles.totalValue}>{tripsReportData?.total ?? 0}</Text>
+                </View>
+
+                {/* Graphical Representation: Vertical Bar Chart */}
+                {tripsReportData?.daily && tripsReportData.daily.length > 0 && (() => {
+                  const maxVal = Math.max(...tripsReportData.daily.map(d => d.count), 1);
+                  return (
+                    <View
+                      style={{
+                        marginVertical: 16,
+                        padding: 16,
+                        backgroundColor: colors.inputBg,
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={[styles.chartLabel, { marginBottom: 16 }]}>📊 Completed Trips Trend</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={{
+                          flexGrow: 1,
+                          justifyContent: 'space-around',
+                          alignItems: 'flex-end',
+                          height: 150,
+                          paddingTop: 20,
+                          paddingBottom: 4,
+                        }}
+                      >
+                        {tripsReportData.daily.map((item, index) => {
+                          const heightPercent = Math.max(12, Math.round((item.count / maxVal) * 100));
+                          return (
+                            <View
+                              key={index}
+                              style={{
+                                alignItems: 'center',
+                                width: Math.max(52, 280 / tripsReportData.daily.length),
+                                marginHorizontal: 4,
+                              }}
+                            >
+                              <Text
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: '700',
+                                  color: colors.primary,
+                                  marginBottom: 6,
+                                }}
+                              >
+                                {item.count}
+                              </Text>
+                              <View
+                                style={{
+                                  width: '55%',
+                                  maxWidth: 24,
+                                  minWidth: 14,
+                                  height: `${heightPercent}%`,
+                                  backgroundColor: colors.primary,
+                                  borderTopLeftRadius: 6,
+                                  borderTopRightRadius: 6,
+                                  shadowColor: colors.primary,
+                                  shadowOffset: { width: 0, height: 2 },
+                                  shadowOpacity: 0.3,
+                                  shadowRadius: 4,
+                                  elevation: 3,
+                                }}
+                              />
+                              <Text
+                                numberOfLines={1}
+                                style={{
+                                  fontSize: 10,
+                                  color: colors.textSecondary,
+                                  marginTop: 8,
+                                  fontWeight: '500',
+                                  textAlign: 'center',
+                                }}
+                              >
+                                {item.date}
+                              </Text>
+                            </View>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  );
+                })()}
+
+                <View style={styles.statsTable}>
+                  <Text style={[styles.chartLabel, { marginBottom: 12 }]}>Day-wise Breakdown Details</Text>
+                  {tripsReportData?.daily && tripsReportData.daily.length > 0 ? (
+                    tripsReportData.daily.map((item, index) => {
+                      const isLast = index === tripsReportData.daily.length - 1;
+                      return (
+                        <View key={index} style={isLast ? styles.statsRowLast : styles.statsRow}>
+                          <View style={styles.legendMarkerGroup}>
+                            <Text style={{ fontSize: 14, marginRight: 6 }}>📅</Text>
+                            <Text style={styles.legendLabel}>{item.date}</Text>
+                          </View>
+                          <View style={styles.statsValues}>
+                            <Text style={[styles.statsCount, { color: colors.primary }]}>{item.count} trips</Text>
+                          </View>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <View style={{ paddingVertical: 16, alignItems: 'center' }}>
+                      <Text style={{ color: colors.textSecondary }}>No completed trip data for the selected period.</Text>
+                    </View>
+                  )}
+                </View>
+              </>
             ) : (
               <>
                 <View style={styles.totalBanner}>
-                  <Text style={styles.totalLabel}>Total Registered</Text>
+                  <Text style={styles.totalLabel}>
+                    {activeCategory === 'PASSENGER' ? 'Total Passengers' : 'Total Registered'}
+                  </Text>
                   <Text style={styles.totalValue}>{total}</Text>
                 </View>
 
-                <View style={styles.chartContainer}>
-                  <Text style={styles.chartLabel}>Registration Proportion</Text>
-                  <View style={styles.stackedBar}>
-                    {approvedPercent > 0 && (
-                      <View style={[styles.barSegment, { width: `${approvedPercent}%`, backgroundColor: colors.success }]} />
-                    )}
-                    {pendingPercent > 0 && (
-                      <View style={[styles.barSegment, { width: `${pendingPercent}%`, backgroundColor: colors.info }]} />
-                    )}
-                    {docPercent > 0 && (
-                      <View style={[styles.barSegment, { width: `${docPercent}%`, backgroundColor: colors.accent }]} />
-                    )}
-                    {rejectedPercent > 0 && (
-                      <View style={[styles.barSegment, { width: `${rejectedPercent}%`, backgroundColor: colors.danger }]} />
-                    )}
-                    {othersPercent > 0 && (
-                      <View style={[styles.barSegment, { width: `${othersPercent}%`, backgroundColor: colors.border }]} />
-                    )}
-                  </View>
-                </View>
+                {activeCategory === 'DRIVER' && (
+                  <>
+                    <View style={styles.chartContainer}>
+                      <Text style={styles.chartLabel}>Registration Proportion</Text>
+                      <View style={styles.stackedBar}>
+                        {approvedPercent > 0 && (
+                          <View style={[styles.barSegment, { width: `${approvedPercent}%`, backgroundColor: colors.success }]} />
+                        )}
+                        {pendingPercent > 0 && (
+                          <View style={[styles.barSegment, { width: `${pendingPercent}%`, backgroundColor: colors.info }]} />
+                        )}
+                        {docPercent > 0 && (
+                          <View style={[styles.barSegment, { width: `${docPercent}%`, backgroundColor: colors.accent }]} />
+                        )}
+                        {rejectedPercent > 0 && (
+                          <View style={[styles.barSegment, { width: `${rejectedPercent}%`, backgroundColor: colors.danger }]} />
+                        )}
+                        {othersPercent > 0 && (
+                          <View style={[styles.barSegment, { width: `${othersPercent}%`, backgroundColor: colors.border }]} />
+                        )}
+                      </View>
+                    </View>
 
-                <View style={styles.statsTable}>
-                  <View style={styles.statsRow}>
-                    <View style={styles.legendMarkerGroup}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
-                      <Text style={styles.legendLabel}>{config.approvedLabel}</Text>
-                    </View>
-                    <View style={styles.statsValues}>
-                      <Text style={styles.statsCount}>{approvedCount}</Text>
-                      <Text style={styles.statsPercent}>{approvedPercent.toFixed(1)}%</Text>
-                    </View>
-                  </View>
+                    <View style={styles.statsTable}>
+                      <View style={styles.statsRow}>
+                        <View style={styles.legendMarkerGroup}>
+                          <View style={[styles.legendDot, { backgroundColor: colors.success }]} />
+                          <Text style={styles.legendLabel}>{config.approvedLabel}</Text>
+                        </View>
+                        <View style={styles.statsValues}>
+                          <Text style={styles.statsCount}>{approvedCount}</Text>
+                          <Text style={styles.statsPercent}>{approvedPercent.toFixed(1)}%</Text>
+                        </View>
+                      </View>
 
-                  <View style={styles.statsRow}>
-                    <View style={styles.legendMarkerGroup}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.info }]} />
-                      <Text style={styles.legendLabel}>{config.pendingLabel}</Text>
-                    </View>
-                    <View style={styles.statsValues}>
-                      <Text style={styles.statsCount}>{pendingCount}</Text>
-                      <Text style={styles.statsPercent}>{pendingPercent.toFixed(1)}%</Text>
-                    </View>
-                  </View>
+                      <View style={styles.statsRow}>
+                        <View style={styles.legendMarkerGroup}>
+                          <View style={[styles.legendDot, { backgroundColor: colors.info }]} />
+                          <Text style={styles.legendLabel}>{config.pendingLabel}</Text>
+                        </View>
+                        <View style={styles.statsValues}>
+                          <Text style={styles.statsCount}>{pendingCount}</Text>
+                          <Text style={styles.statsPercent}>{pendingPercent.toFixed(1)}%</Text>
+                        </View>
+                      </View>
 
-                  <View style={styles.statsRow}>
-                    <View style={styles.legendMarkerGroup}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
-                      <Text style={styles.legendLabel}>{config.docLabel}</Text>
-                    </View>
-                    <View style={styles.statsValues}>
-                      <Text style={styles.statsCount}>{docCount}</Text>
-                      <Text style={styles.statsPercent}>{docPercent.toFixed(1)}%</Text>
-                    </View>
-                  </View>
+                      <View style={styles.statsRow}>
+                        <View style={styles.legendMarkerGroup}>
+                          <View style={[styles.legendDot, { backgroundColor: colors.accent }]} />
+                          <Text style={styles.legendLabel}>{config.docLabel}</Text>
+                        </View>
+                        <View style={styles.statsValues}>
+                          <Text style={styles.statsCount}>{docCount}</Text>
+                          <Text style={styles.statsPercent}>{docPercent.toFixed(1)}%</Text>
+                        </View>
+                      </View>
 
-                  <View style={styles.statsRow}>
-                    <View style={styles.legendMarkerGroup}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
-                      <Text style={styles.legendLabel}>{config.rejectedLabel}</Text>
-                    </View>
-                    <View style={styles.statsValues}>
-                      <Text style={styles.statsCount}>{rejectedCount}</Text>
-                      <Text style={styles.statsPercent}>{rejectedPercent.toFixed(1)}%</Text>
-                    </View>
-                  </View>
+                      <View style={styles.statsRow}>
+                        <View style={styles.legendMarkerGroup}>
+                          <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
+                          <Text style={styles.legendLabel}>{config.rejectedLabel}</Text>
+                        </View>
+                        <View style={styles.statsValues}>
+                          <Text style={styles.statsCount}>{rejectedCount}</Text>
+                          <Text style={styles.statsPercent}>{rejectedPercent.toFixed(1)}%</Text>
+                        </View>
+                      </View>
 
-                  <View style={styles.statsRowLast}>
-                    <View style={styles.legendMarkerGroup}>
-                      <View style={[styles.legendDot, { backgroundColor: colors.border }]} />
-                      <Text style={styles.legendLabel}>Incomplete / Draft</Text>
+                      <View style={styles.statsRowLast}>
+                        <View style={styles.legendMarkerGroup}>
+                          <View style={[styles.legendDot, { backgroundColor: colors.border }]} />
+                          <Text style={styles.legendLabel}>Incomplete / Draft</Text>
+                        </View>
+                        <View style={styles.statsValues}>
+                          <Text style={styles.statsCount}>{othersCount}</Text>
+                          <Text style={styles.statsPercent}>{othersPercent.toFixed(1)}%</Text>
+                        </View>
+                      </View>
                     </View>
-                    <View style={styles.statsValues}>
-                      <Text style={styles.statsCount}>{othersCount}</Text>
-                      <Text style={styles.statsPercent}>{othersPercent.toFixed(1)}%</Text>
-                    </View>
-                  </View>
-                </View>
+                  </>
+                )}
               </>
             )}
           </View>

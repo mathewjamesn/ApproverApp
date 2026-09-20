@@ -41,9 +41,10 @@ export const ENDPOINTS = {
     BLOCK: '/CustomerCare/BlockAndUnBlockPassenger/',
     RESET_RIDE: '/Passenger/ResetRideStatus/',
     DELETE: '/Passenger/Delete/',
+    GET_COUNT: '/Passenger/GetCount',
   },
   REPORTS: {
-    RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/10',
+    RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/',
     GET_DRIVER_REGISTRATION_SUMMARY: '/Reports/GetDriverRegistrationSummary',
   },
   NOTIFICATION: {

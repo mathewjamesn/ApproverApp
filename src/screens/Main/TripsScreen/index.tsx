@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
@@ -78,66 +78,98 @@ export default function TripsScreen({ navigation }: any) {
     }
   }, [activeTab, searchPhone]);
 
-  const filteredTrips = trips.filter(trip =>
-    activeStatus === 'all' || trip.tripStatus === activeStatus
-  );
+  const filteredTrips = trips.filter(trip => {
+    if (activeStatus === 'all') return true;
+    if (activeStatus === 'PaymentComplete' || activeStatus === 'completed') {
+      return trip.tripStatus === 'PaymentComplete' || trip.tripStatus === 'completed';
+    }
+    return trip.tripStatus === activeStatus;
+  });
 
   const formatStatusDisplay = (status?: string) => {
-    if (!status) return 'Unknown';
-    return status.replace(/_/g, ' ');
+    return status || 'Unknown';
   };
 
-  const renderTripCard = ({ item }: { item: Trip }) => (
-    <TouchableOpacity
-      style={styles.tripCard}
-      onPress={() => navigation.navigate('TripDetails', { tripData: item })}
-    >
-      <View style={styles.cardHeaderRow}>
-        <View style={styles.statusBadge}>
-          <Text style={styles.statusText}>{formatStatusDisplay(item.tripStatus)}</Text>
+  const getStatusColor = (status?: string) => {
+    if (!status) return colors.textSecondary;
+    const s = status.toLowerCase();
+    if (s.includes('complete') || s === 'paymentcomplete') {
+      return colors.success; // Green (#10B981)
+    }
+    if (s.includes('driver') && s.includes('cancel')) {
+      return '#E11D48'; // Vivid Red / Rose (Cancelled by Driver - quickly identifiable)
+    }
+    if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
+      return '#F97316'; // Amber / Orange (Cancelled by Passenger)
+    }
+    if (s.includes('cancel') || s.includes('reject')) {
+      return colors.danger; // Default Red for generic cancel/reject
+    }
+    if (s.includes('start')) {
+      return colors.info; // Blue (#3B82F6)
+    }
+    if (s.includes('accept')) {
+      return colors.accent; // Sky Blue (#0EA5E9)
+    }
+    return colors.textSecondary;
+  };
+
+  const renderTripCard = ({ item }: { item: Trip }) => {
+    const statusColor = getStatusColor(item.tripStatus);
+
+    return (
+      <TouchableOpacity
+        style={styles.tripCard}
+        onPress={() => navigation.navigate('TripDetails', { tripData: item })}
+      >
+        <View style={styles.cardHeaderRow}>
+          <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A', borderColor: statusColor + '33', borderWidth: 1 }]}>
+            <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(item.tripStatus)}</Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.routeContainer}>
-        <Text>🔵</Text>
-        <Text style={styles.locText} numberOfLines={1}>{item.fromLocation}</Text>
-      </View>
-      <View style={{ marginLeft: 22 }}>
-        <Text style={{ color: colors.border, marginTop: -6, marginBottom: -6 }}>|</Text>
-      </View>
-      <View style={styles.routeContainer}>
-        <Text>🔴</Text>
-        <Text style={styles.locText} numberOfLines={1}>{item.toLocation}</Text>
-      </View>
+        <View style={styles.routeContainer}>
+          <Text>🔵</Text>
+          <Text style={styles.locText} numberOfLines={1}>{item.fromLocation}</Text>
+        </View>
+        <View style={{ marginLeft: 22 }}>
+          <Text style={{ color: colors.border, marginTop: -6, marginBottom: -6 }}>|</Text>
+        </View>
+        <View style={styles.routeContainer}>
+          <Text>🔴</Text>
+          <Text style={styles.locText} numberOfLines={1}>{item.toLocation}</Text>
+        </View>
 
-      <View style={styles.cardFooterRow}>
-        <Text style={styles.dateText}>{new Date(item.createdOn || item.tripStartDate || Date.now()).toLocaleString()}</Text>
-        <Text style={styles.fareText}>₹{(item.finalFareAmount || 0).toFixed(2)}</Text>
-      </View>
+        <View style={styles.cardFooterRow}>
+          <Text style={styles.dateText}>{new Date(item.createdOn || item.tripStartDate || Date.now()).toLocaleString()}</Text>
+          <Text style={styles.fareText}>₹{(item.finalFareAmount || 0).toFixed(2)}</Text>
+        </View>
 
-      {item.tripStatus === 'PaymentComplete' && (
-        <TouchableOpacity
-          style={styles.routeInfoButton}
-          onPress={() => {
-            const fromLat = item.fromAddress?.latitude;
-            const fromLng = item.fromAddress?.longitude;
-            const toLat = item.toAddress?.latitude;
-            const toLng = item.toAddress?.longitude;
-            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
-            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-            Linking.openURL(url);
-          }}
-        >
-          <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
-        </TouchableOpacity>
-      )}
-    </TouchableOpacity>
-  );
+        {(item.tripStatus === 'PaymentComplete' || item.tripStatus === 'completed') && (
+          <TouchableOpacity
+            style={styles.routeInfoButton}
+            onPress={() => {
+              const fromLat = item.fromAddress?.latitude;
+              const fromLng = item.fromAddress?.longitude;
+              const toLat = item.toAddress?.latitude;
+              const toLng = item.toAddress?.longitude;
+              const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
+              const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
+              const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+              Linking.openURL(url);
+            }}
+          >
+            <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <View style={[styles.header, { paddingTop: (insets.top || 0) + 16 }]}>
         <Text style={styles.headerTitle}>Trips Monitor</Text>
         <Text style={styles.statsSubtitle}>Total Trips: {stats.total}</Text>
       </View>
@@ -173,7 +205,7 @@ export default function TripsScreen({ navigation }: any) {
             value={searchPhone}
             onChangeText={setSearchPhone}
           />
-          <TouchableOpacity style={styles.searchButton} onPress={loadTripsData}>
+          <TouchableOpacity style={styles.searchButton} onPress={() => loadTripsData()}>
             <Text style={styles.searchButtonText}>Search</Text>
           </TouchableOpacity>
         </View>

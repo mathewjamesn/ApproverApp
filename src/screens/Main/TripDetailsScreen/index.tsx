@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, Linking, StatusBar } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -33,9 +33,40 @@ export default function TripDetailsScreen({ route, navigation }: any) {
 
   if (!tripData) return <View style={styles.container}><Text>No data</Text></View>;
 
+  const formatStatusDisplay = (status?: string) => {
+    return status || 'Unknown';
+  };
+
+  const getStatusColor = (status?: string) => {
+    if (!status) return colors.textSecondary;
+    const s = status.toLowerCase();
+    if (s.includes('complete') || s === 'paymentcomplete') {
+      return colors.success;
+    }
+    if (s.includes('driver') && s.includes('cancel')) {
+      return '#E11D48'; // Vivid Red / Rose (Cancelled by Driver)
+    }
+    if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
+      return '#F97316'; // Amber / Orange (Cancelled by Passenger)
+    }
+    if (s.includes('cancel') || s.includes('reject')) {
+      return colors.danger;
+    }
+    if (s.includes('start')) {
+      return colors.info;
+    }
+    if (s.includes('accept')) {
+      return colors.accent;
+    }
+    return colors.textSecondary;
+  };
+
+  const statusColor = getStatusColor(tripData.tripStatus);
+
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
+      <View style={[styles.header, { paddingTop: (insets.top || 0) + 16 }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
@@ -59,8 +90,8 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Current Status</Text>
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusText}>{(tripData.tripStatus || '').replace(/([A-Z])/g, ' $1').trim()}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A', borderColor: statusColor + '33', borderWidth: 1 }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(tripData.tripStatus)}</Text>
             </View>
           </View>
         </View>
@@ -213,7 +244,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
         </View>
       </ScrollView>
 
-      {tripData.tripStatus === 'PaymentComplete' && (
+      {(tripData.tripStatus === 'PaymentComplete' || tripData.tripStatus === 'completed') && (
         <TouchableOpacity
           style={{
             backgroundColor: colors.primary,
