@@ -171,7 +171,16 @@ export default function TripsScreen({ navigation }: any) {
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <View style={[styles.header, { paddingTop: (insets.top || 0) + 16 }]}>
         <Text style={styles.headerTitle}>Trips Monitor</Text>
-        <Text style={styles.statsSubtitle}>Total Trips: {stats.total}</Text>
+        <Text style={styles.statsSubtitle}>
+          {(() => {
+            const currentFilter = STATUS_FILTERS.find(f => f.value === activeStatus);
+            const label = currentFilter ? currentFilter.label : 'All Trips';
+            if (activeStatus === 'all') {
+              return `Total Trips: ${filteredTrips.length}`;
+            }
+            return `Total ${label} Trips: ${filteredTrips.length}`;
+          })()}
+        </Text>
       </View>
 
       <View style={styles.tabsContainer}>
