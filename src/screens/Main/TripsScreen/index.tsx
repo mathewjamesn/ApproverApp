@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking, StatusBar } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking, StatusBar, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
@@ -33,11 +33,14 @@ export default function TripsScreen({ navigation }: any) {
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({ total: 0 });
 
-  const loadTripsData = async (queryToSearch?: string) => {
+  const loadTripsData = async (queryToSearch?: string, isRefreshCall?: boolean) => {
     Keyboard.dismiss();
-    setIsLoading(true);
+    if (!isRefreshCall) {
+      setIsLoading(true);
+    }
     try {
       let data: Trip[] = [];
       if (activeTab === 'recent') {
@@ -58,6 +61,15 @@ export default function TripsScreen({ navigation }: any) {
       console.log(e);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadTripsData(undefined, true);
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -251,6 +263,14 @@ export default function TripsScreen({ navigation }: any) {
           renderItem={renderTripCard}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <Text style={{ fontSize: 40 }}>📭</Text>

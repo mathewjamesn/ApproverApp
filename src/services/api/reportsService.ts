@@ -39,6 +39,21 @@ const formatToDDMMYYYY = (dateInput?: string): string => {
   return dateInput;
 };
 
+export interface TopOnlineDriver {
+  driverName?: string;
+  name?: string;
+  mobileNumber?: string;
+  phone?: string;
+  partitionKey?: string;
+  city?: string;
+  onlineHours?: number;
+  onlineTime?: string | number;
+  onlineDurationMinutes?: number;
+  tripsCount?: number;
+  rank?: number;
+  [key: string]: any;
+}
+
 export const reportsService = {
   getRecentlyCompletedTripsCount: async (): Promise<number> => {
     try {
@@ -86,6 +101,56 @@ export const reportsService = {
     } catch (error) {
       console.log('Error fetching driver registration summary:', error);
       throw error;
+    }
+  },
+
+  getTopOnlineDrivers: async (period: string = '2026-09'): Promise<TopOnlineDriver[]> => {
+    try {
+      const response = await apiClient.get(`${ENDPOINTS.REPORTS.TOP_ONLINE_DRIVERS}?period=${period}`);
+      const data = response.data;
+      if (Array.isArray(data)) {
+        return data;
+      }
+      if (data && Array.isArray(data.drivers)) {
+        return data.drivers;
+      }
+      if (data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
+    } catch (error) {
+      console.log(`Error fetching top online drivers for period ${period}:`, error);
+      return [];
+    }
+  },
+
+  getDriversCountByAvailabilityStatus: async (
+    city: string,
+    vehicleType: 'Car' | 'Auto',
+    status: string = 'online'
+  ): Promise<number> => {
+    try {
+      const response = await apiClient.get(
+        `${ENDPOINTS.REPORTS.GET_DRIVERS_BY_AVAILABILITY}${encodeURIComponent(city)}/${encodeURIComponent(vehicleType)}/${encodeURIComponent(status)}`
+      );
+      const data = response.data;
+      if (typeof data === 'number') return data;
+      if (typeof data === 'string') {
+        const parsed = parseInt(data, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      if (data && typeof data === 'object') {
+        const cnt = data.count ?? data.total ?? data.driversCount ?? data.totalCount ?? (Array.isArray(data) ? data.length : 0);
+        if (typeof cnt === 'number') return cnt;
+        if (typeof cnt === 'string') {
+          const parsed = parseInt(cnt, 10);
+          return isNaN(parsed) ? 0 : parsed;
+        }
+      }
+      return 0;
+    } catch (error) {
+      console.log(`Error fetching availability status for ${city}/${vehicleType}/${status}:`, error);
+      return 0;
     }
   }
 };

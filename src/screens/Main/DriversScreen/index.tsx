@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Linking } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Linking, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -17,6 +17,7 @@ export default function DriversScreen() {
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING');
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Search states
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -24,9 +25,11 @@ export default function DriversScreen() {
   const [searchResults, setSearchResults] = useState<Driver[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const fetchDrivers = async () => {
-    setIsLoading(true);
-    setDrivers([]);
+  const fetchDrivers = async (isRefreshCall?: boolean) => {
+    if (!isRefreshCall) {
+      setIsLoading(true);
+      setDrivers([]);
+    }
     try {
       if (activeTab === 'PENDING') {
         const data = await driverService.getPendingDrivers();
@@ -42,11 +45,13 @@ export default function DriversScreen() {
     }
   };
 
-  const handleSearch = async (queryToSearch?: string) => {
+  const handleSearch = async (queryToSearch?: string, isRefreshCall?: boolean) => {
     const query = (queryToSearch !== undefined ? queryToSearch : searchQuery).trim();
     if (query.length !== 10) return;
-    setIsSearching(true);
-    setSearchResults([]);
+    if (!isRefreshCall) {
+      setIsSearching(true);
+      setSearchResults([]);
+    }
     try {
       const data = await driverService.getActiveDriverByPhone(query);
       setSearchResults(data);
@@ -54,6 +59,19 @@ export default function DriversScreen() {
       console.log('Error searching drivers', error);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (!isSearchActive) {
+        await fetchDrivers(true);
+      } else if (searchQuery.trim().length === 10) {
+        await handleSearch(undefined, true);
+      }
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -80,7 +98,7 @@ export default function DriversScreen() {
       // Refresh data whenever screen gains focus
       if (!isSearchActive) {
         fetchDrivers();
-      } else if (searchQuery.trim().length == 10) {
+      } else if (searchQuery.trim().length === 10) {
         handleSearch();
       }
     }, [activeTab, isSearchActive, searchQuery])
@@ -173,7 +191,17 @@ export default function DriversScreen() {
         </View>
       )}
 
-      <ScrollView contentContainerStyle={styles.listContent}>
+      <ScrollView
+        contentContainerStyle={styles.listContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {isSearchActive ? (
           isSearching ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />

@@ -10,11 +10,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
-import { reportsService, RegistrationSummary, RegistrationObject, RecentlyCompletedTripsData, CompletedTripDayReport } from '../../../services/api/reportsService';
+import { reportsService, RegistrationSummary, RegistrationObject, RecentlyCompletedTripsData, CompletedTripDayReport, TopOnlineDriver } from '../../../services/api/reportsService';
 import { passengerService } from '../../../services/api/passengerService';
 import { useEnvironment } from '../../../context/EnvironmentContext';
 
 const TRIP_DAYS_OPTIONS = [1, 2, 5, 10];
+
+const CITIES_LIST = [
+  'Ernakulam',
+  'Palakkad',
+  'Trivandrum',
+  'Kollam',
+  'Kottayam',
+  'Thrissur',
+  'Calicut',
+  'Kannur',
+  'Idukki',
+  'Pathanamthitta',
+  'Alappuzha',
+  'Wayanad',
+  'Kasargod',
+  'Malappuram',
+];
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -28,6 +45,17 @@ export default function HomeScreen() {
   const [selectedTripDays, setSelectedTripDays] = useState<number>(5);
   const [tripsReportData, setTripsReportData] = useState<RecentlyCompletedTripsData | null>(null);
   const [isReportsLoading, setIsReportsLoading] = useState(false);
+
+  // Online Drivers count by City
+  const [selectedCity, setSelectedCity] = useState<string>('Ernakulam');
+  const [cityCarOnlineCount, setCityCarOnlineCount] = useState<number>(0);
+  const [cityAutoOnlineCount, setCityAutoOnlineCount] = useState<number>(0);
+  const [isCityOnlineLoading, setIsCityOnlineLoading] = useState<boolean>(false);
+  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState<boolean>(false);
+
+  // Top Online Drivers
+  const [topOnlineDrivers, setTopOnlineDrivers] = useState<TopOnlineDriver[]>([]);
+  const [isTopDriversLoading, setIsTopDriversLoading] = useState<boolean>(false);
 
   const fetchReportsData = async (cat: 'DRIVER' | 'PASSENGER' | 'TRIPS') => {
     setIsReportsLoading(true);
@@ -65,6 +93,43 @@ export default function HomeScreen() {
       setIsReportsLoading(false);
     }
   };
+
+  const fetchCityOnlineDriversCount = async (city: string) => {
+    setIsCityOnlineLoading(true);
+    try {
+      const [carCount, autoCount] = await Promise.all([
+        reportsService.getDriversCountByAvailabilityStatus(city, 'Car', 'online'),
+        reportsService.getDriversCountByAvailabilityStatus(city, 'Auto', 'online'),
+      ]);
+      setCityCarOnlineCount(carCount);
+      setCityAutoOnlineCount(autoCount);
+    } catch (error) {
+      console.log('Error loading city online count:', error);
+    } finally {
+      setIsCityOnlineLoading(false);
+    }
+  };
+
+  const fetchTopOnlineDrivers = async () => {
+    setIsTopDriversLoading(true);
+    try {
+      const currentPeriod = new Date().toISOString().substring(0, 7); // e.g., "2026-09"
+      const drivers = await reportsService.getTopOnlineDrivers(currentPeriod);
+      setTopOnlineDrivers(drivers);
+    } catch (error) {
+      console.log('Error loading top online drivers:', error);
+    } finally {
+      setIsTopDriversLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTopOnlineDrivers();
+  }, []);
+
+  useEffect(() => {
+    fetchCityOnlineDriversCount(selectedCity);
+  }, [selectedCity]);
 
   useEffect(() => {
     fetchReportsData(activeCategory);
@@ -192,8 +257,12 @@ export default function HomeScreen() {
               Reports & Statistics
             </Text>
             <TouchableOpacity
-              onPress={() => fetchReportsData(activeCategory)}
-              disabled={isReportsLoading}
+              onPress={() => {
+                fetchReportsData(activeCategory);
+                fetchCityOnlineDriversCount(selectedCity);
+                fetchTopOnlineDrivers();
+              }}
+              disabled={isReportsLoading || isCityOnlineLoading || isTopDriversLoading}
               style={{
                 width: 32,
                 height: 32,
@@ -205,7 +274,7 @@ export default function HomeScreen() {
                 borderColor: colors.border,
               }}
             >
-              {isReportsLoading ? (
+              {isReportsLoading || isCityOnlineLoading || isTopDriversLoading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
                 <Text style={{ fontSize: 14, includeFontPadding: false }}>🔄</Text>
@@ -490,6 +559,220 @@ export default function HomeScreen() {
                   </>
                 )}
               </>
+            )}
+          </View>
+
+          {/* Card 1: Online Drivers by City */}
+          <View style={[styles.detailCard, { marginTop: 20 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.detailCardTitle}>🟢 Online Drivers by City</Text>
+              <TouchableOpacity
+                onPress={() => setIsCityDropdownOpen(!isCityDropdownOpen)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: colors.inputBg,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ fontSize: 12, fontWeight: '700', color: colors.primary, marginRight: 4 }}>
+                  📍 {selectedCity}
+                </Text>
+                <Text style={{ fontSize: 10, color: colors.textSecondary }}>
+                  {isCityDropdownOpen ? '▲' : '▼'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {isCityDropdownOpen && (
+              <View style={{
+                backgroundColor: colors.inputBg,
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}>
+                <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary, marginBottom: 8 }}>
+                  Select City:
+                </Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {CITIES_LIST.map((city) => (
+                    <TouchableOpacity
+                      key={city}
+                      onPress={() => {
+                        setSelectedCity(city);
+                        setIsCityDropdownOpen(false);
+                      }}
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 16,
+                        backgroundColor: selectedCity === city ? colors.primary : colors.card,
+                        borderWidth: 1,
+                        borderColor: selectedCity === city ? colors.primary : colors.border,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          fontWeight: selectedCity === city ? '700' : '500',
+                          color: selectedCity === city ? '#FFFFFF' : colors.textPrimary,
+                        }}
+                      >
+                        {city}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {isCityOnlineLoading ? (
+              <View style={{ paddingVertical: 24, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : (
+              <View style={{ gap: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{
+                    flex: 1,
+                    backgroundColor: colors.inputBg,
+                    borderRadius: 14,
+                    padding: 14,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 20, marginBottom: 4 }}>🚗</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>Car Online</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: colors.primary, marginTop: 4 }}>{cityCarOnlineCount}</Text>
+                  </View>
+
+                  <View style={{
+                    flex: 1,
+                    backgroundColor: colors.inputBg,
+                    borderRadius: 14,
+                    padding: 14,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    alignItems: 'center',
+                  }}>
+                    <Text style={{ fontSize: 20, marginBottom: 4 }}>🛺</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>Auto Online</Text>
+                    <Text style={{ fontSize: 22, fontWeight: '800', color: colors.primary, marginTop: 4 }}>{cityAutoOnlineCount}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.totalBanner}>
+                  <Text style={styles.totalLabel}>Total Online Drivers in {selectedCity}</Text>
+                  <Text style={styles.totalValue}>{cityCarOnlineCount + cityAutoOnlineCount}</Text>
+                </View>
+              </View>
+            )}
+          </View>
+
+          {/* Card 2: Top Online Drivers */}
+          <View style={[styles.detailCard, { marginTop: 20 }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.detailCardTitle}>🏆 Top Online Drivers</Text>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: colors.textSecondary }}>
+                Period: {new Date().toISOString().substring(0, 7)}
+              </Text>
+            </View>
+
+            {isTopDriversLoading ? (
+              <View style={{ paddingVertical: 30, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colors.primary} />
+              </View>
+            ) : topOnlineDrivers && topOnlineDrivers.length > 0 ? (
+              <View style={{ gap: 8 }}>
+                {topOnlineDrivers.map((driver, index) => {
+                  const rank = driver.rank || index + 1;
+                  const driverName = driver.driverName || driver.name || driver.partitionKey || `Driver #${rank}`;
+                  const phone = driver.mobileNumber || driver.phone || '';
+                  const city = driver.city || '';
+                  const hours = driver.onlineHours ?? driver.onlineDurationMinutes ?? driver.onlineTime ?? driver.tripsCount ?? 0;
+
+                  let rankBadgeBg = colors.inputBg;
+                  let rankBadgeTextColor = colors.textPrimary;
+                  if (rank === 1) {
+                    rankBadgeBg = '#FFD70022';
+                    rankBadgeTextColor = '#D4AF37';
+                  } else if (rank === 2) {
+                    rankBadgeBg = '#C0C0C022';
+                    rankBadgeTextColor = '#A0A0A0';
+                  } else if (rank === 3) {
+                    rankBadgeBg = '#CD7F3222';
+                    rankBadgeTextColor = '#CD7F32';
+                  }
+
+                  return (
+                    <View
+                      key={driver.partitionKey || index}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: 12,
+                        backgroundColor: colors.inputBg,
+                        borderRadius: 14,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+                        <View style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: 16,
+                          backgroundColor: rankBadgeBg,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        }}>
+                          <Text style={{ fontSize: 13, fontWeight: '800', color: rankBadgeTextColor }}>
+                            #{rank}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '700', color: colors.textPrimary }} numberOfLines={1}>
+                            {driverName}
+                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                            {phone ? (
+                              <Text style={{ fontSize: 11, color: colors.textSecondary }}>📞 {phone}</Text>
+                            ) : null}
+                            {city ? (
+                              <Text style={{ fontSize: 11, color: colors.textSecondary }}>📍 {city}</Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      </View>
+
+                      {hours !== undefined && (
+                        <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
+                          <Text style={{ fontSize: 14, fontWeight: '800', color: colors.primary }}>
+                            {typeof hours === 'number' ? `${hours.toFixed(1)} hrs` : hours}
+                          </Text>
+                          <Text style={{ fontSize: 10, color: colors.textSecondary, fontWeight: '500' }}>
+                            Online Time
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
+                <Text style={{ fontSize: 13, color: colors.textSecondary }}>
+                  No top online drivers data found for this period.
+                </Text>
+              </View>
             )}
           </View>
 

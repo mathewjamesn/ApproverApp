@@ -46,6 +46,8 @@ export const ENDPOINTS = {
   REPORTS: {
     RECENT_COMPLETED_TRIPS: '/Reports/GetRecentlyCompletedTrips/',
     GET_DRIVER_REGISTRATION_SUMMARY: '/Reports/GetDriverRegistrationSummary',
+    TOP_ONLINE_DRIVERS: '/Reports/TopOnlineDrivers',
+    GET_DRIVERS_BY_AVAILABILITY: '/Reports/GetDriversByAvailabilityStatus/',
   },
   NOTIFICATION: {
     SEND_NOTIFICATION: '/Notification/SendNotification/false',
