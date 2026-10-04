@@ -133,21 +133,9 @@ export const reportsService = {
       const response = await apiClient.get(
         `${ENDPOINTS.REPORTS.GET_DRIVERS_BY_AVAILABILITY}${encodeURIComponent(city)}/${encodeURIComponent(vehicleType)}/${encodeURIComponent(status)}`
       );
-      const data = response.data;
-      if (typeof data === 'number') return data;
-      if (typeof data === 'string') {
-        const parsed = parseInt(data, 10);
-        return isNaN(parsed) ? 0 : parsed;
-      }
-      if (data && typeof data === 'object') {
-        const cnt = data.count ?? data.total ?? data.driversCount ?? data.totalCount ?? (Array.isArray(data) ? data.length : 0);
-        if (typeof cnt === 'number') return cnt;
-        if (typeof cnt === 'string') {
-          const parsed = parseInt(cnt, 10);
-          return isNaN(parsed) ? 0 : parsed;
-        }
-      }
-      return 0;
+      const dataResponse = response?.data;      
+      const data = dataResponse?.totalDrivers ?? 0;
+      return data;
     } catch (error) {
       console.log(`Error fetching availability status for ${city}/${vehicleType}/${status}:`, error);
       return 0;

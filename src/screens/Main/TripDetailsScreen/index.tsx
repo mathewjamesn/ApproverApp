@@ -24,6 +24,58 @@ const CopyableId = ({ value, textStyle }: { value?: string, textStyle: any }) =>
   );
 };
 
+const isWithin24Hours = (dateInput?: string | null): boolean => {
+  if (!dateInput) return false;
+  const timeMs = new Date(dateInput).getTime();
+  if (isNaN(timeMs)) return false;
+  return (Date.now() - timeMs) <= 24 * 60 * 60 * 1000;
+};
+
+const getEffectiveTripStatus = (trip: any): string => {
+  const status = (trip.tripStatus || '').trim();
+  if (status === '') {
+    const createdDate = trip.createdOn || trip.tripStartDate;
+    if (isWithin24Hours(createdDate)) {
+      return 'DriverAccepted';
+    }
+  }
+  return status || 'Unknown';
+};
+
+const isCancelledTrip = (status?: string): boolean => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s.includes('cancel') || s.includes('reject');
+};
+
+const getCancelledDate = (trip: any): string | null => {
+  return (
+    trip.tripCancelledDate ||
+    trip.cancelledDate ||
+    trip.cancelledOn ||
+    trip.cancellationTime ||
+    null
+  );
+};
+
+const getEffectiveFare = (trip: any): number => {
+  if (trip.finalFareAmount && trip.finalFareAmount > 0) {
+    return trip.finalFareAmount;
+  }
+  return trip.initialFareAmount || trip.estimatedFareAmount || trip.tripFare || trip.totalFare || 0;
+};
+
+const formatTimeDisplay = (dateStr?: string | null): string => {
+  if (!dateStr) return '--';
+  if (dateStr.includes('T') || dateStr.includes('-')) {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString();
+    }
+  }
+  return dateStr;
+};
+
 export default function TripDetailsScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
@@ -32,6 +84,12 @@ export default function TripDetailsScreen({ route, navigation }: any) {
   const { tripData } = route.params || {};
 
   if (!tripData) return <View style={styles.container}><Text>No data</Text></View>;
+
+  const effectiveStatus = getEffectiveTripStatus(tripData);
+  const isCancelled = isCancelledTrip(effectiveStatus);
+  const cancelledDate = getCancelledDate(tripData);
+  const fareAmount = getEffectiveFare(tripData);
+  const pickupDistance = tripData.totalPickupDistance ?? tripData.pickupDistance ?? tripData.driverToPassengerDistance;
 
   const formatStatusDisplay = (status?: string) => {
     return status || 'Unknown';
@@ -44,10 +102,10 @@ export default function TripDetailsScreen({ route, navigation }: any) {
       return colors.success;
     }
     if (s.includes('driver') && s.includes('cancel')) {
-      return '#E11D48'; // Vivid Red / Rose (Cancelled by Driver)
+      return '#E11D48'; // Vivid Red / Rose
     }
     if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
-      return '#F97316'; // Amber / Orange (Cancelled by Passenger)
+      return '#F97316'; // Amber / Orange
     }
     if (s.includes('cancel') || s.includes('reject')) {
       return colors.danger;
@@ -61,7 +119,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
     return colors.textSecondary;
   };
 
-  const statusColor = getStatusColor(tripData.tripStatus);
+  const statusColor = getStatusColor(effectiveStatus);
 
   return (
     <View style={styles.container}>
@@ -86,12 +144,12 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Created On</Text>
-            <Text style={styles.value}>{new Date(tripData.createdOn).toLocaleString()}</Text>
+            <Text style={styles.value}>{formatTimeDisplay(tripData.createdOn)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Current Status</Text>
             <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A', borderColor: statusColor + '33', borderWidth: 1 }]}>
-              <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(tripData.tripStatus)}</Text>
+              <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(effectiveStatus)}</Text>
             </View>
           </View>
         </View>
@@ -109,25 +167,43 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={{ marginTop: 16 }}>
             <View style={styles.row}>
-              <Text style={styles.label}>Distance</Text>
-              <Text style={styles.value}>{tripData.distanceInKilometers} km</Text>
+              <Text style={styles.label}>Distance (Trip)</Text>
+              <Text style={styles.value}>{tripData.distanceInKilometers || 0} km</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Driver to Passenger Distance</Text>
+              <Text style={[styles.value, { color: colors.primary, fontWeight: 'bold' }]}>
+                {pickupDistance !== undefined && pickupDistance !== null ? `${pickupDistance} km` : '--'}
+              </Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>OTP</Text>
-              <Text style={styles.value}>{tripData.otp}</Text>
+              <Text style={styles.value}>{tripData.otp || '--'}</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Accepted</Text>
-              <Text style={styles.value}>{tripData.tripAcceptDate || '--'}</Text>
+              <Text style={styles.value}>{tripData.tripAcceptDate ? formatTimeDisplay(tripData.tripAcceptDate) : formatTimeDisplay(tripData.createdOn)}</Text>
             </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Started</Text>
-              <Text style={styles.value}>{tripData.tripStartDate || '--'}</Text>
-            </View>
-            <View style={styles.row}>
-              <Text style={styles.label}>Ended</Text>
-              <Text style={styles.value}>{tripData.tripEndDate || '--'}</Text>
-            </View>
+
+            {isCancelled ? (
+              <View style={styles.row}>
+                <Text style={styles.label}>Cancelled Time</Text>
+                <Text style={[styles.value, { color: colors.danger, fontWeight: 'bold' }]}>
+                  {cancelledDate ? formatTimeDisplay(cancelledDate) : 'Cancelled'}
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Started</Text>
+                  <Text style={styles.value}>{tripData.tripStartDate ? formatTimeDisplay(tripData.tripStartDate) : '--'}</Text>
+                </View>
+                <View style={styles.row}>
+                  <Text style={styles.label}>Ended</Text>
+                  <Text style={styles.value}>{tripData.tripEndDate ? formatTimeDisplay(tripData.tripEndDate) : '--'}</Text>
+                </View>
+              </>
+            )}
           </View>
         </View>
 
@@ -138,8 +214,8 @@ export default function TripDetailsScreen({ route, navigation }: any) {
             <Text style={styles.value}>₹{(tripData.initialFareAmount || 0).toFixed(2)}</Text>
           </View>
           <View style={styles.row}>
-            <Text style={styles.label}>Final Fare Amount</Text>
-            <Text style={[styles.value, { color: colors.accent, fontSize: 16 }]}>₹{(tripData.finalFareAmount || 0).toFixed(2)}</Text>
+            <Text style={styles.label}>Final / Effective Fare</Text>
+            <Text style={[styles.value, { color: colors.accent, fontSize: 16, fontWeight: 'bold' }]}>₹{fareAmount.toFixed(2)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Payment Mode</Text>
@@ -244,33 +320,32 @@ export default function TripDetailsScreen({ route, navigation }: any) {
         </View>
       </ScrollView>
 
-      {(tripData.tripStatus === 'PaymentComplete' || tripData.tripStatus === 'completed') && (
-        <TouchableOpacity
-          style={{
-            backgroundColor: colors.primary,
-            margin: 16,
-            paddingVertical: 16,
-            borderRadius: 14,
-            alignItems: 'center',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            gap: 8,
-          }}
-          onPress={() => {
-            const fromLat = tripData.fromAddress?.latitude;
-            const fromLng = tripData.fromAddress?.longitude;
-            const toLat = tripData.toAddress?.latitude;
-            const toLng = tripData.toAddress?.longitude;
-            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(tripData.fromLocation || '');
-            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(tripData.toLocation || '');
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-            Linking.openURL(url);
-          }}
-        >
-          <Text style={{ fontSize: 20 }}>🗺️</Text>
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={{
+          backgroundColor: colors.primary,
+          margin: 16,
+          marginBottom: (insets.bottom || 0) + 8,
+          paddingVertical: 16,
+          borderRadius: 14,
+          alignItems: 'center',
+          flexDirection: 'row',
+          justifyContent: 'center',
+          gap: 8,
+        }}
+        onPress={() => {
+          const fromLat = tripData.fromAddress?.latitude;
+          const fromLng = tripData.fromAddress?.longitude;
+          const toLat = tripData.toAddress?.latitude;
+          const toLng = tripData.toAddress?.longitude;
+          const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(tripData.fromLocation || '');
+          const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(tripData.toLocation || '');
+          const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+          Linking.openURL(url);
+        }}
+      >
+        <Text style={{ fontSize: 20 }}>🗺️</Text>
+        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
+      </TouchableOpacity>
     </View>
   );
 }

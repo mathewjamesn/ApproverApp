@@ -14,13 +14,65 @@ type TabOption = 'recent' | 'driver' | 'passenger';
 
 const STATUS_FILTERS: { label: string, value: string }[] = [
   { label: 'All Trips', value: 'all' },
+  { label: 'Accepted', value: 'DriverAccepted' },
   { label: 'Completed', value: 'PaymentComplete' },
   { label: 'Started', value: 'RideStarted' },
-  { label: 'Accepted', value: 'DriverAccepted' },
   { label: 'Cancelled (Driver)', value: 'CancelledByDriver' },
   { label: 'Cancelled (Passenger)', value: 'CancelledByPassenger' },
   { label: 'Rejected', value: 'Rejected' },
 ];
+
+const isWithin24Hours = (dateInput?: string | null): boolean => {
+  if (!dateInput) return false;
+  const timeMs = new Date(dateInput).getTime();
+  if (isNaN(timeMs)) return false;
+  return (Date.now() - timeMs) <= 24 * 60 * 60 * 1000;
+};
+
+const getEffectiveTripStatus = (trip: Trip): string => {
+  const status = (trip.tripStatus || '').trim();
+  if (status === '') {
+    const createdDate = trip.createdOn || trip.tripStartDate;
+    if (isWithin24Hours(createdDate)) {
+      return 'DriverAccepted';
+    }
+  }
+  return status || 'Unknown';
+};
+
+const isCancelledTrip = (status?: string): boolean => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s.includes('cancel') || s.includes('reject');
+};
+
+const getCancelledDate = (trip: Trip): string | null => {
+  return (
+    trip.tripCancelledDate ||
+    (trip as any).cancelledDate ||
+    (trip as any).cancelledOn ||
+    (trip as any).cancellationTime ||
+    null
+  );
+};
+
+const getEffectiveFare = (trip: Trip): number => {
+  if (trip.finalFareAmount && trip.finalFareAmount > 0) {
+    return trip.finalFareAmount;
+  }
+  return trip.initialFareAmount || (trip as any).estimatedFareAmount || (trip as any).tripFare || (trip as any).totalFare || 0;
+};
+
+const formatTimeDisplay = (dateStr?: string | null): string => {
+  if (!dateStr) return '--';
+  if (dateStr.includes('T') || dateStr.includes('-')) {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString();
+    }
+  }
+  return dateStr;
+};
 
 export default function TripsScreen({ navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -91,11 +143,19 @@ export default function TripsScreen({ navigation }: any) {
   }, [activeTab, searchPhone]);
 
   const filteredTrips = trips.filter(trip => {
+    const effectiveStatus = getEffectiveTripStatus(trip);
     if (activeStatus === 'all') return true;
-    if (activeStatus === 'PaymentComplete' || activeStatus === 'completed') {
-      return trip.tripStatus === 'PaymentComplete' || trip.tripStatus === 'completed';
+    if (activeStatus === 'DriverAccepted' || activeStatus === 'Accepted') {
+      return (
+        effectiveStatus === 'DriverAccepted' ||
+        effectiveStatus === 'accepted' ||
+        effectiveStatus === 'Accepted'
+      );
     }
-    return trip.tripStatus === activeStatus;
+    if (activeStatus === 'PaymentComplete' || activeStatus === 'completed') {
+      return effectiveStatus === 'PaymentComplete' || effectiveStatus === 'completed';
+    }
+    return effectiveStatus === activeStatus;
   });
 
   const formatStatusDisplay = (status?: string) => {
@@ -109,25 +169,30 @@ export default function TripsScreen({ navigation }: any) {
       return colors.success; // Green (#10B981)
     }
     if (s.includes('driver') && s.includes('cancel')) {
-      return '#E11D48'; // Vivid Red / Rose (Cancelled by Driver - quickly identifiable)
+      return '#E11D48'; // Vivid Red / Rose
     }
     if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
-      return '#F97316'; // Amber / Orange (Cancelled by Passenger)
+      return '#F97316'; // Amber / Orange
     }
     if (s.includes('cancel') || s.includes('reject')) {
-      return colors.danger; // Default Red for generic cancel/reject
+      return colors.danger;
     }
     if (s.includes('start')) {
-      return colors.info; // Blue (#3B82F6)
+      return colors.info;
     }
     if (s.includes('accept')) {
-      return colors.accent; // Sky Blue (#0EA5E9)
+      return colors.accent;
     }
     return colors.textSecondary;
   };
 
   const renderTripCard = ({ item }: { item: Trip }) => {
-    const statusColor = getStatusColor(item.tripStatus);
+    const effectiveStatus = getEffectiveTripStatus(item);
+    const statusColor = getStatusColor(effectiveStatus);
+    const isCancelled = isCancelledTrip(effectiveStatus);
+    const cancelledDate = getCancelledDate(item);
+    const fareAmount = getEffectiveFare(item);
+    const pickupDistance = item.totalPickupDistance ?? (item as any).pickupDistance ?? (item as any).driverToPassengerDistance;
 
     return (
       <TouchableOpacity
@@ -136,8 +201,9 @@ export default function TripsScreen({ navigation }: any) {
       >
         <View style={styles.cardHeaderRow}>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A', borderColor: statusColor + '33', borderWidth: 1 }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(item.tripStatus)}</Text>
+            <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(effectiveStatus)}</Text>
           </View>
+          <Text style={styles.fareText}>₹{fareAmount.toFixed(2)}</Text>
         </View>
 
         <View style={styles.routeContainer}>
@@ -152,28 +218,53 @@ export default function TripsScreen({ navigation }: any) {
           <Text style={styles.locText} numberOfLines={1}>{item.toLocation}</Text>
         </View>
 
-        <View style={styles.cardFooterRow}>
-          <Text style={styles.dateText}>{new Date(item.createdOn || item.tripStartDate || Date.now()).toLocaleString()}</Text>
-          <Text style={styles.fareText}>₹{(item.finalFareAmount || 0).toFixed(2)}</Text>
+        {/* Route Info: Distance from Driver to Passenger Current Address */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
+            🚕 Driver to Passenger Distance: {pickupDistance !== undefined && pickupDistance !== null ? `${pickupDistance} km` : (item.distanceInKilometers ? `${item.distanceInKilometers} km` : 'N/A')}
+          </Text>
         </View>
 
-        {(item.tripStatus === 'PaymentComplete' || item.tripStatus === 'completed') && (
-          <TouchableOpacity
-            style={styles.routeInfoButton}
-            onPress={() => {
-              const fromLat = item.fromAddress?.latitude;
-              const fromLng = item.fromAddress?.longitude;
-              const toLat = item.toAddress?.latitude;
-              const toLng = item.toAddress?.longitude;
-              const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
-              const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
-              const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-              Linking.openURL(url);
-            }}
-          >
-            <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
+        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
+            🚕 Total Distance: {item?.distanceInKilometers !== undefined && item?.distanceInKilometers !== null ? `${item?.distanceInKilometers} km` : 'N/A'}
+          </Text>
+        </View>
+
+        <View style={styles.cardFooterRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dateText}>
+              Accepted: {item.tripAcceptDate ? formatTimeDisplay(item.tripAcceptDate) : formatTimeDisplay(item.createdOn)}
+            </Text>
+            {isCancelled ? (
+              <Text style={[styles.dateText, { color: colors.danger, marginTop: 2, fontWeight: '600' }]}>
+                Cancelled: {cancelledDate ? formatTimeDisplay(cancelledDate) : 'Cancelled'}
+              </Text>
+            ) : (
+              item.tripStartDate ? (
+                <Text style={[styles.dateText, { color: colors.info, marginTop: 2 }]}>
+                  Started: {formatTimeDisplay(item.tripStartDate)}
+                </Text>
+              ) : null
+            )}
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.routeInfoButton}
+          onPress={() => {
+            const fromLat = item.fromAddress?.latitude;
+            const fromLng = item.fromAddress?.longitude;
+            const toLat = item.toAddress?.latitude;
+            const toLng = item.toAddress?.longitude;
+            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
+            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+            Linking.openURL(url);
+          }}
+        >
+          <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     );
   };

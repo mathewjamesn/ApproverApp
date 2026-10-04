@@ -100,9 +100,9 @@ export default function HomeScreen() {
       const [carCount, autoCount] = await Promise.all([
         reportsService.getDriversCountByAvailabilityStatus(city, 'Car', 'online'),
         reportsService.getDriversCountByAvailabilityStatus(city, 'Auto', 'online'),
-      ]);
-      setCityCarOnlineCount(carCount);
-      setCityAutoOnlineCount(autoCount);
+      ]);      
+      setCityCarOnlineCount(carCount ?? 0);
+      setCityAutoOnlineCount(autoCount ?? 0);
     } catch (error) {
       console.log('Error loading city online count:', error);
     } finally {
@@ -696,7 +696,7 @@ export default function HomeScreen() {
                   const driverName = driver.driverName || driver.name || driver.partitionKey || `Driver #${rank}`;
                   const phone = driver.mobileNumber || driver.phone || '';
                   const city = driver.city || '';
-                  const hours = driver.onlineHours ?? driver.onlineDurationMinutes ?? driver.onlineTime ?? driver.tripsCount ?? 0;
+                  const hours = driver.totalOnlineHours ?? 0;
 
                   let rankBadgeBg = colors.inputBg;
                   let rankBadgeTextColor = colors.textPrimary;
