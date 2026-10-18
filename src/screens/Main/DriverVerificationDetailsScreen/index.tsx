@@ -338,8 +338,6 @@ export default function DriverVerificationDetailsScreen() {
   };
 
   const submitVerification = async () => {
-    console.log('driverDetails', driverDetails);
-    return
     if (profileStatus === 'PENDING' || licenseStatus === 'PENDING' || vehicleStatus === 'PENDING') {
       setFeedback({
         visible: true,
