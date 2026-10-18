@@ -5,16 +5,16 @@ export interface NotificationPayload {
   Message: string;
   Title: string;
   ViewName: string;
-  UserType: 'Driver' | 'Passenger';
-  ImageForNotification: string;
+  UserType?: 'Driver' | 'Passenger';
+  ImageForNotification?: string;
   Tags: string[];
-  DevicePlatform: string;
+  DevicePlatform?: string;
 }
 
 export const notificationService = {
   sendNotification: async (payload: NotificationPayload): Promise<any> => {
     try {
-      const response = await apiClient.post(ENDPOINTS.NOTIFICATION.SEND_NOTIFICATION, payload);
+      const response = await apiClient.post(ENDPOINTS.NOTIFICATION.SEND_NOTIFICATION_V2, payload);
       return response.data;
     } catch (error: any) {
       throw {

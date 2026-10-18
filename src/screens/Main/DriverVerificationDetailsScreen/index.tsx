@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Linking, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator, Image, Modal, Linking, KeyboardAvoidingView, Platform, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
@@ -50,6 +50,19 @@ export default function DriverVerificationDetailsScreen() {
   const [fullScreenImageURI, setFullScreenImageURI] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+
+  // Edit mode toggles
+  const [isLicenseEditing, setIsLicenseEditing] = useState(false);
+  const [isVehicleEditing, setIsVehicleEditing] = useState(false);
+
+  // Editable license fields
+  const [editLicenseNo, setEditLicenseNo] = useState<string>('');
+
+  // Editable vehicle fields
+  const [editPlateNo, setEditPlateNo] = useState<string>('');
+  const [editVehicleName, setEditVehicleName] = useState<string>('');
+  const [editVehicleMake, setEditVehicleMake] = useState<string>('');
+  const [editVehicleType, setEditVehicleType] = useState<string>('');
 
   const [feedback, setFeedback] = useState<{
     visible: boolean;
@@ -154,6 +167,17 @@ export default function DriverVerificationDetailsScreen() {
   const vehicleName = vehicleDetails?.vehicleName || vehicleDetails?.model || driverDetails?.vehicleName || 'N/A';
   const vehicleMake = vehicleDetails?.vehicleMake || vehicleDetails?.make || driverDetails?.vehicleMake || 'N/A';
   const vehicleType = vehicleDetails?.vehicleType || driverDetails?.associatedVehicleType || 'N/A';
+
+  // Sync editable fields when data loads
+  useEffect(() => {
+    if (driverDetails || vehicleDetails) {
+      setEditLicenseNo(licenseNo !== 'N/A' ? licenseNo : '');
+      setEditPlateNo(plateNo !== 'N/A' ? plateNo : '');
+      setEditVehicleName(vehicleName !== 'N/A' ? vehicleName : '');
+      setEditVehicleMake(vehicleMake !== 'N/A' ? vehicleMake : '');
+      setEditVehicleType(vehicleType !== 'N/A' ? vehicleType : '');
+    }
+  }, [driverDetails, vehicleDetails]);
 
   const renderDecisionButtons = useCallback((
     sectionId: string,
@@ -314,6 +338,8 @@ export default function DriverVerificationDetailsScreen() {
   };
 
   const submitVerification = async () => {
+    console.log('driverDetails', driverDetails);
+    return
     if (profileStatus === 'PENDING' || licenseStatus === 'PENDING' || vehicleStatus === 'PENDING') {
       setFeedback({
         visible: true,
@@ -343,9 +369,14 @@ export default function DriverVerificationDetailsScreen() {
 
       const payload = {
         ...driverDetails,
+        licenseNumber: editLicenseNo || driverDetails?.licenseNumber,
         licenseExpiryDate: licenseExpiryDate ? licenseExpiryDate.toISOString() : driverDetails?.licenseExpiryDate,
         insuranceValidTillDate: insuranceExpiryDate ? insuranceExpiryDate.toISOString() : driverDetails?.insuranceValidTillDate,
         vehiclePermitValidTillDate: permitExpiryDate ? permitExpiryDate.toISOString() : driverDetails?.vehiclePermitValidTillDate,
+        registrationNumber: editPlateNo || driverDetails?.plateNumber,
+        vehicleName: editVehicleName || driverDetails?.vehicleName,
+        vehicleMake: editVehicleMake || driverDetails?.vehicleMake,
+        vehicleType: editVehicleType || driverDetails?.associatedVehicleType,
         profileImageComments: profileStatus === 'APPROVED' ? 'Approved' : profileReason,
         driverLicenseComments: licenseStatus === 'APPROVED' ? 'Approved' : licenseReason,
         vehicleComments: vehicleStatus === 'APPROVED' ? 'Approved' : vehicleReason,
@@ -548,9 +579,30 @@ export default function DriverVerificationDetailsScreen() {
                 )}
               </View>
             </View>
+            {/* License Edit Toggle */}
+            <TouchableOpacity
+              onPress={() => setIsLicenseEditing(prev => !prev)}
+              style={styles.editToggleBtn}
+            >
+              <Text style={styles.editToggleBtnText}>
+                {isLicenseEditing ? '✓ Done Editing' : '✎ Edit Fields'}
+              </Text>
+            </TouchableOpacity>
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>License No.</Text>
-              <Text style={styles.infoValue}>{licenseNo}</Text>
+              {isLicenseEditing ? (
+                <TextInput
+                  style={styles.inlineInput}
+                  value={editLicenseNo}
+                  onChangeText={setEditLicenseNo}
+                  placeholder="Enter license number"
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="characters"
+                />
+              ) : (
+                <Text style={styles.infoValue}>{editLicenseNo || licenseNo}</Text>
+              )}
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Expiry Date</Text>
@@ -597,21 +649,72 @@ export default function DriverVerificationDetailsScreen() {
                 )}
               </View>
             </View>
+            {/* Vehicle Edit Toggle */}
+            <TouchableOpacity
+              onPress={() => setIsVehicleEditing(prev => !prev)}
+              style={styles.editToggleBtn}
+            >
+              <Text style={styles.editToggleBtnText}>
+                {isVehicleEditing ? '✓ Done Editing' : '✎ Edit Fields'}
+              </Text>
+            </TouchableOpacity>
+
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Plate Number</Text>
-              <Text style={styles.infoValue}>{plateNo}</Text>
+              {isVehicleEditing ? (
+                <TextInput
+                  style={styles.inlineInput}
+                  value={editPlateNo}
+                  onChangeText={setEditPlateNo}
+                  placeholder="Enter plate number"
+                  placeholderTextColor={colors.textSecondary}
+                  autoCapitalize="characters"
+                />
+              ) : (
+                <Text style={styles.infoValue}>{editPlateNo || plateNo}</Text>
+              )}
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Vehicle Name</Text>
-              <Text style={styles.infoValue}>{vehicleName}</Text>
+              {isVehicleEditing ? (
+                <TextInput
+                  style={styles.inlineInput}
+                  value={editVehicleName}
+                  onChangeText={setEditVehicleName}
+                  placeholder="Enter vehicle name"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              ) : (
+                <Text style={styles.infoValue}>{editVehicleName || vehicleName}</Text>
+              )}
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Make</Text>
-              <Text style={styles.infoValue}>{vehicleMake}</Text>
+              {isVehicleEditing ? (
+                <TextInput
+                  style={styles.inlineInput}
+                  value={editVehicleMake}
+                  onChangeText={setEditVehicleMake}
+                  placeholder="Enter make"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              ) : (
+                <Text style={styles.infoValue}>{editVehicleMake || vehicleMake}</Text>
+              )}
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Type</Text>
-              <Text style={styles.infoValue}>{vehicleType}</Text>
+              {isVehicleEditing ? (
+                <TextInput
+                  style={styles.inlineInput}
+                  value={editVehicleType}
+                  onChangeText={setEditVehicleType}
+                  placeholder="Enter vehicle type"
+                  placeholderTextColor={colors.textSecondary}
+                />
+              ) : (
+                <Text style={styles.infoValue}>{editVehicleType || vehicleType}</Text>
+              )}
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Insurance Expiry</Text>

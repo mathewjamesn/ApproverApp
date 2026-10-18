@@ -205,4 +205,30 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 8
   },
+  editToggleBtn: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.tabActiveBg,
+  },
+  editToggleBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  inlineInput: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.primary,
+    minWidth: 140,
+    textAlign: 'right',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+  },
 });

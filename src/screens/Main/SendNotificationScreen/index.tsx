@@ -67,10 +67,10 @@ export default function SendNotificationScreen() {
       Message: message,
       Title: title,
       ViewName: 'TOKNotification',
-      UserType: userType,
-      ImageForNotification: '',
+      // UserType: userType,
+      // ImageForNotification: '',
       Tags: userType === 'Driver' ? ['AllTOKDrivers'] : ['AllTOKPassengers'],
-      DevicePlatform: 'fcmv1',
+      // DevicePlatform: 'fcmv1',
     };
 
     try {

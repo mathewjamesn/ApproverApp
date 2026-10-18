@@ -51,5 +51,6 @@ export const ENDPOINTS = {
   },
   NOTIFICATION: {
     SEND_NOTIFICATION: '/Notification/SendNotification/false',
+    SEND_NOTIFICATION_V2: '/Notification/SendToTopic',
   }
 };
