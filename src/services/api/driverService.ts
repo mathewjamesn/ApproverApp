@@ -200,4 +200,25 @@ export const driverService = {
       throw error;
     }
   },
+
+  getAddonPendingVehicles: async (): Promise<any[]> => {
+    try {
+      const response = await apiClient.get(ENDPOINTS.VEHICLE.GET_ADDON_PENDING);
+      const data = response.data;
+      if (Array.isArray(data)) return data;
+      if (data) return [data];
+      return [];
+    } catch (error: any) {
+      throw error;
+    }
+  },
+
+  approveAddonVehicle: async (id: string, partitionKey: string): Promise<any> => {
+    try {
+      const response = await apiClient.post(`${ENDPOINTS.VEHICLE.APPROVE_ADDON}${id}/${partitionKey}`, {});
+      return response.data;
+    } catch (error: any) {
+      throw error;
+    }
+  },
 };

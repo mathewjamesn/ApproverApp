@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  File paths exposed via FileProvider for react-native-image-picker camera support.
+  - external-files-path: app-private external storage (no extra permissions needed on API 29+)
+  - external-path:       public external storage (used as fallback on older APIs)
+  - cache-path:          internal cache (always accessible to the app)
+-->
+<paths>
+    <external-files-path
+        name="camera_photos"
+        path="Pictures/" />
+    <external-path
+        name="external_pictures"
+        path="." />
+    <cache-path
+        name="cache"
+        path="." />
+</paths>

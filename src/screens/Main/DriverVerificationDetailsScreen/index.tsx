@@ -6,9 +6,10 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService } from '../../../services/api/driverService';
 import DatePicker from 'react-native-date-picker';
-import { launchImageLibrary } from 'react-native-image-picker';
+import { launchImageLibrary, launchCamera } from 'react-native-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import FeedbackBottomSheet from '../../../components/common/FeedbackBottomSheet';
+import { requestCameraPermission, requestGalleryPermission } from '../../../utils/cameraPermission';
 
 type ReviewStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
@@ -50,6 +51,7 @@ export default function DriverVerificationDetailsScreen() {
   const [fullScreenImageURI, setFullScreenImageURI] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+  const [imageSourceModal, setImageSourceModal] = useState<'profile' | 'license' | 'vehicle' | null>(null);
 
   // Edit mode toggles
   const [isLicenseEditing, setIsLicenseEditing] = useState(false);
@@ -164,7 +166,7 @@ export default function DriverVerificationDetailsScreen() {
   const displayPermitExpiry = permitExpiryDate ? permitExpiryDate.toISOString().split('T')[0] : 'Select Date';
 
   const plateNo = vehicleDetails?.plateNumber || vehicleDetails?.registrationNumber || vehicleDetails?.registrationNo || driverDetails?.plateNumber || 'N/A';
-  const vehicleName = vehicleDetails?.vehicleName || vehicleDetails?.model || driverDetails?.vehicleName || 'N/A';
+  const vehicleName = vehicleDetails?.vehicleModel || 'N/A';
   const vehicleMake = vehicleDetails?.vehicleMake || vehicleDetails?.make || driverDetails?.vehicleMake || 'N/A';
   const vehicleType = vehicleDetails?.vehicleType || driverDetails?.associatedVehicleType || 'N/A';
 
@@ -263,14 +265,82 @@ export default function DriverVerificationDetailsScreen() {
     );
   }, [openDropdownId, profileStatus, profileReason, licenseStatus, licenseReason, vehicleStatus, vehicleReason]);
 
-  const handleChangeImage = async (type: 'profile' | 'license' | 'vehicle') => {
+  // Opens the source-selection sheet instead of going straight to the gallery
+  const handleChangeImage = (type: 'profile' | 'license' | 'vehicle') => {
+    setImageSourceModal(type);
+  };
+
+  const pickFromGallery = async (type: 'profile' | 'license' | 'vehicle') => {
+    setImageSourceModal(null);
+    await new Promise<void>(resolve => setTimeout(() => resolve(), Platform.OS === 'android' ? 350 : 100));
+
+    const granted = await requestGalleryPermission();
+    if (!granted) {
+      setFeedback({
+        visible: true,
+        type: 'confirm',
+        title: 'Storage Permission Required',
+        description: 'Storage permission is required to pick images. Please enable it in Settings.',
+        actionButtonText: 'Settings',
+        cancelButtonText: 'Cancel',
+        onCancelAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        onAction: () => {
+          setFeedback(prev => ({ ...prev, visible: false }));
+          Linking.openSettings().catch(err => console.log('Cannot open settings', err));
+        },
+      });
+      return;
+    }
     try {
       const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8 });
       if (result.assets && result.assets.length > 0) {
         setLocalImages(prev => ({ ...prev, [type]: result.assets![0].uri }));
       }
     } catch (error) {
-      console.log('Image picker error:', error);
+      console.log('Gallery picker error:', error);
+    }
+  };
+
+  const pickFromCamera = async (type: 'profile' | 'license' | 'vehicle') => {
+    setImageSourceModal(null);
+    // Allow the modal dialog to dismiss completely so the Android Activity has window focus to show the permission prompt
+    await new Promise<void>(resolve => setTimeout(() => resolve(), Platform.OS === 'android' ? 350 : 100));
+
+    const { granted, neverAskAgain } = await requestCameraPermission();
+    if (!granted) {
+      if (neverAskAgain) {
+        setFeedback({
+          visible: true,
+          type: 'confirm',
+          title: 'Camera Permission Disabled',
+          description: 'Camera permission has been disabled. Please open Settings and allow Camera access.',
+          actionButtonText: 'Settings',
+          cancelButtonText: 'Cancel',
+          onCancelAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+          onAction: () => {
+            setFeedback(prev => ({ ...prev, visible: false }));
+            Linking.openSettings().catch(err => console.log('Cannot open settings', err));
+          },
+        });
+      } else {
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: 'Permission Denied',
+          description: 'Camera permission is required to take photos.',
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
+      }
+      return;
+    }
+
+    try {
+      const result = await launchCamera({ mediaType: 'photo', quality: 0.8, saveToPhotos: false });
+      if (result.assets && result.assets.length > 0) {
+        setLocalImages(prev => ({ ...prev, [type]: result.assets![0].uri }));
+      }
+    } catch (error) {
+      console.log('Camera error:', error);
     }
   };
 
@@ -825,6 +895,108 @@ export default function DriverVerificationDetailsScreen() {
         cancelButtonText={feedback.cancelButtonText}
         onCancelAction={feedback.onCancelAction}
       />
+
+      {/* Image Source Selection Modal */}
+      <Modal
+        visible={imageSourceModal !== null}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setImageSourceModal(null)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setImageSourceModal(null)}
+        >
+          <View style={{
+            backgroundColor: colors.card,
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: (insets.bottom || 0) + 24,
+          }}>
+            {/* Drag handle */}
+            <View style={{
+              width: 40,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: colors.border,
+              alignSelf: 'center',
+              marginBottom: 20,
+            }} />
+
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '700',
+              color: colors.textPrimary,
+              marginBottom: 16,
+              textAlign: 'center',
+            }}>
+              Select Image Source
+            </Text>
+
+            {/* Camera option */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 12,
+                borderRadius: 14,
+                backgroundColor: colors.background,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => imageSourceModal && pickFromCamera(imageSourceModal)}
+            >
+              <Text style={{ fontSize: 28 }}>📷</Text>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>Camera</Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Take a new photo</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Gallery option */}
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 12,
+                borderRadius: 14,
+                backgroundColor: colors.background,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+              onPress={() => imageSourceModal && pickFromGallery(imageSourceModal)}
+            >
+              <Text style={{ fontSize: 28 }}>🖼️</Text>
+              <View>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: colors.textPrimary }}>Gallery</Text>
+                <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>Choose from photo library</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={{
+                paddingVertical: 14,
+                borderRadius: 14,
+                alignItems: 'center',
+                marginTop: 4,
+              }}
+              onPress={() => setImageSourceModal(null)}
+            >
+              <Text style={{ fontSize: 15, fontWeight: '600', color: colors.danger }}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }

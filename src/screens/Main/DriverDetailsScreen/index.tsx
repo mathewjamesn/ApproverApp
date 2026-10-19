@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService } from '../../../services/api/driverService';
@@ -176,27 +176,30 @@ export default function DriverDetailsScreen() {
     });
   };
 
-  useEffect(() => {
-    const fetchDetails = async () => {
-      if (!driverId) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const [details, docs] = await Promise.all([
-          driverService.getDriverDetails(driverId, partitionKey),
-          driverService.getDriverDocuments(driverId, partitionKey)
-        ]);
-        setDriverDetails(details);
-        setDriverDocuments(docs);
-      } catch (error) {
-        console.log("Error fetching driver data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchDetails();
+  const fetchDetails = useCallback(async () => {
+    if (!driverId) {
+      setIsLoading(false);
+      return;
+    }
+    try {
+      const [details, docs] = await Promise.all([
+        driverService.getDriverDetails(driverId, partitionKey),
+        driverService.getDriverDocuments(driverId, partitionKey)
+      ]);
+      setDriverDetails(details);
+      setDriverDocuments(docs);
+    } catch (error) {
+      console.log("Error fetching driver data:", error);
+    } finally {
+      setIsLoading(false);
+    }
   }, [driverId, partitionKey]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchDetails();
+    }, [fetchDetails])
+  );
 
   const formatInitials = (name: string) => {
     return name
@@ -219,6 +222,7 @@ export default function DriverDetailsScreen() {
 
   const actions = [
     { id: 'verification', title: 'View Details', icon: '🔍' },
+    { id: 'update_details', title: 'Update Details', icon: '✏️' },
     { id: 'locate', title: 'Locate Driver', icon: '📍' },
     { id: 'test_ride', title: 'Test Ride', icon: '🚗' },
     { id: 'change_rc', title: 'Change RC', icon: '📄' },
@@ -304,11 +308,17 @@ export default function DriverDetailsScreen() {
                 style={styles.actionButton}
                 onPress={() => {
                   if (action.id === 'verification') {
-                    (navigation.navigate as any)('DriverVerificationDetails', {
+                    (navigation.navigate as any)('DriverViewDetails', {
                       driverName: driverName,
                       status: driverStatus,
                       id: driverId,
                       partitionKey: partitionKey
+                    });
+                  } else if (action.id === 'update_details') {
+                    (navigation.navigate as any)('DriverUpdate', {
+                      driverName: driverName,
+                      id: driverId,
+                      partitionKey: partitionKey,
                     });
                   } else if (action.id === 'locate') {
                     if (!driverPhoneNumber) {

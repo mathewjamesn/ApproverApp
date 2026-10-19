@@ -221,13 +221,13 @@ export default function TripsScreen({ navigation }: any) {
         {/* Route Info: Distance from Driver to Passenger Current Address */}
         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
           <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
-            🚕 Driver to Passenger Distance: {pickupDistance !== undefined && pickupDistance !== null ? `${pickupDistance} km` : (item.distanceInKilometers ? `${item.distanceInKilometers} km` : 'N/A')}
+            🚕 Pick-Up Distance: {(pickupDistance !== undefined && pickupDistance !== null) ? `${pickupDistance} km` : 'N/A'}
           </Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
         <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
-            🚕 Total Distance: {item?.distanceInKilometers !== undefined && item?.distanceInKilometers !== null ? `${item?.distanceInKilometers} km` : 'N/A'}
+            🚕 Final Distance: {item?.finalDistanceInKilometers !== undefined && item?.finalDistanceInKilometers !== null ? `${item?.finalDistanceInKilometers} km` : 'N/A'}
           </Text>
         </View>
 

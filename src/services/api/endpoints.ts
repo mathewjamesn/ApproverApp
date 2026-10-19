@@ -21,6 +21,8 @@ export const ENDPOINTS = {
   },
   VEHICLE: {
     GET_DETAILS: '/Vehicle/Get/',
+    GET_ADDON_PENDING: '/Vehicle/AddOn/Pending',
+    APPROVE_ADDON: '/Vehicle/AddOn/Approve/',
   },
   TRIPS: {
     GET_ALL: '/CustomerCare/GetTrips/',

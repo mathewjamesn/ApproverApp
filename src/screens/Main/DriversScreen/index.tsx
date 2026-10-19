@@ -6,7 +6,7 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService, Driver } from '../../../services/api/driverService';
 
-type FilterTab = 'PENDING' | 'REJECTED';
+type FilterTab = 'PENDING' | 'REJECTED' | 'ADD_ON';
 
 export default function DriversScreen() {
   const insets = useSafeAreaInsets();
@@ -16,6 +16,7 @@ export default function DriversScreen() {
 
   const [activeTab, setActiveTab] = useState<FilterTab>('PENDING');
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [addonVehicles, setAddonVehicles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -25,18 +26,22 @@ export default function DriversScreen() {
   const [searchResults, setSearchResults] = useState<Driver[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
-  const fetchDrivers = async (isRefreshCall?: boolean) => {
+  const fetchDrivers = async (tabToFetch: FilterTab = activeTab, isRefreshCall?: boolean) => {
     if (!isRefreshCall) {
       setIsLoading(true);
       setDrivers([]);
+      setAddonVehicles([]);
     }
     try {
-      if (activeTab === 'PENDING') {
+      if (tabToFetch === 'PENDING') {
         const data = await driverService.getPendingDrivers();
         setDrivers(data);
-      } else if (activeTab === 'REJECTED') {
+      } else if (tabToFetch === 'REJECTED') {
         const data = await driverService.getRejectedDrivers();
         setDrivers(data);
+      } else if (tabToFetch === 'ADD_ON') {
+        const data = await driverService.getAddonPendingVehicles();
+        setAddonVehicles(data);
       }
     } catch (error) {
       console.log('Error fetching drivers', error);
@@ -44,6 +49,35 @@ export default function DriversScreen() {
       setIsLoading(false);
     }
   };
+
+  const handleTabChange = (tab: FilterTab) => {
+    if (tab === activeTab) return;
+    setActiveTab(tab);
+    fetchDrivers(tab);
+  };
+
+  const resetAndFetchDrivers = useCallback(() => {
+    setIsSearchActive(false);
+    setSearchQuery('');
+    setSearchResults([]);
+    setIsSearching(false);
+    setActiveTab('PENDING');
+    fetchDrivers('PENDING');
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      // Clear all values and fetch API whenever user comes to driver tab
+      resetAndFetchDrivers();
+    }, [resetAndFetchDrivers])
+  );
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('tabPress' as any, () => {
+      resetAndFetchDrivers();
+    });
+    return unsubscribe;
+  }, [navigation, resetAndFetchDrivers]);
 
   const handleSearch = async (queryToSearch?: string, isRefreshCall?: boolean) => {
     const query = (queryToSearch !== undefined ? queryToSearch : searchQuery).trim();
@@ -66,7 +100,7 @@ export default function DriversScreen() {
     setRefreshing(true);
     try {
       if (!isSearchActive) {
-        await fetchDrivers(true);
+        await fetchDrivers(activeTab, true);
       } else if (searchQuery.trim().length === 10) {
         await handleSearch(undefined, true);
       }
@@ -74,12 +108,6 @@ export default function DriversScreen() {
       setRefreshing(false);
     }
   };
-
-  useEffect(() => {
-    if (!isSearchActive) {
-      fetchDrivers();
-    }
-  }, [activeTab, isSearchActive]);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -92,17 +120,6 @@ export default function DriversScreen() {
       setSearchResults([]);
     }
   }, [searchQuery]);
-
-  useFocusEffect(
-    useCallback(() => {
-      // Refresh data whenever screen gains focus
-      if (!isSearchActive) {
-        fetchDrivers();
-      } else if (searchQuery.trim().length === 10) {
-        handleSearch();
-      }
-    }, [activeTab, isSearchActive, searchQuery])
-  );
 
   const formatInitials = (name?: string) => {
     if (!name) return '??';
@@ -150,6 +167,7 @@ export default function DriversScreen() {
                 setIsSearchActive(false);
                 setSearchQuery('');
                 setSearchResults([]);
+                fetchDrivers(activeTab);
               }}
             >
               <Text style={styles.cancelButtonText}>Cancel</Text>
@@ -162,7 +180,11 @@ export default function DriversScreen() {
             <View>
               <Text style={styles.headerTitle}>Drivers</Text>
               <Text style={styles.statsSubtitle}>
-                {`${drivers.length} ${activeTab === 'PENDING' ? 'Pending Verifications' : 'Rejected Drivers'}`}
+                {activeTab === 'PENDING'
+                  ? `${drivers.length} Pending Verifications`
+                  : activeTab === 'REJECTED'
+                  ? `${drivers.length} Rejected Drivers`
+                  : `${addonVehicles.length} Add-On Requests`}
               </Text>
             </View>
             <TouchableOpacity
@@ -177,14 +199,14 @@ export default function DriversScreen() {
 
       {!isSearchActive && (
         <View style={styles.tabsContainer}>
-          {(['PENDING', 'REJECTED'] as FilterTab[]).map(tab => (
+          {(['PENDING', 'REJECTED', 'ADD_ON'] as FilterTab[]).map(tab => (
             <TouchableOpacity
               key={tab}
               style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
-              onPress={() => setActiveTab(tab)}
+              onPress={() => handleTabChange(tab)}
             >
               <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-                {tab.charAt(0) + tab.slice(1).toLowerCase()}
+                {tab === 'ADD_ON' ? 'Add-On' : tab.charAt(0) + tab.slice(1).toLowerCase()}
               </Text>
             </TouchableOpacity>
           ))}
@@ -289,6 +311,43 @@ export default function DriversScreen() {
         ) : (
           isLoading ? (
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+          ) : activeTab === 'ADD_ON' ? (
+            <>
+              {addonVehicles.map((vehicle, idx) => (
+                <TouchableOpacity
+                  key={vehicle.id || idx.toString()}
+                  style={styles.driverCard}
+                  onPress={() => {
+                    (navigation.navigate as any)('AddOnDetails', { vehicle });
+                  }}
+                >
+                  <View style={styles.driverCardContent}>
+                    <View style={styles.driverInfo}>
+                      <View style={styles.avatarPlaceholder}>
+                        <Text style={{ fontSize: 22 }}>🚗</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.driverName}>{vehicle.registrationNumber || 'N/A'}</Text>
+                        <Text style={styles.driverPhone}>
+                          {[vehicle.vehicleMake, vehicle.vehicleModel].filter(Boolean).join(' ') || 'N/A'}
+                        </Text>
+                        <Text style={[styles.driverPhone, { marginTop: 2 }]}>
+                          {vehicle.category || vehicle.vehicleType || 'N/A'} · {vehicle.colour || ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={[styles.statusBadge, { backgroundColor: colors.info + '1A' }]}>
+                      <Text style={[styles.statusText, { color: colors.info }]}>Pending</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+              {addonVehicles.length === 0 && (
+                <View style={{ alignItems: 'center', marginTop: 40 }}>
+                  <Text style={{ color: colors.textSecondary }}>No Add-On requests found.</Text>
+                </View>
+              )}
+            </>
           ) : (
             <>
               {drivers.map((driver, idx) => {

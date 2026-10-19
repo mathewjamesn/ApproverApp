@@ -167,11 +167,15 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </View>
           <View style={{ marginTop: 16 }}>
             <View style={styles.row}>
-              <Text style={styles.label}>Distance (Trip)</Text>
+              <Text style={styles.label}>Inital Distance</Text>
               <Text style={styles.value}>{tripData.distanceInKilometers || 0} km</Text>
             </View>
             <View style={styles.row}>
-              <Text style={styles.label}>Driver to Passenger Distance</Text>
+              <Text style={styles.label}>Final Distance (Trip)</Text>
+              <Text style={styles.value}>{tripData.finalDistanceInKilometers || 0} km</Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.label}>Pick-Up Distance</Text>
               <Text style={[styles.value, { color: colors.primary, fontWeight: 'bold' }]}>
                 {pickupDistance !== undefined && pickupDistance !== null ? `${pickupDistance} km` : '--'}
               </Text>
@@ -212,6 +216,10 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           <View style={styles.row}>
             <Text style={styles.label}>Initial Fare Estimate</Text>
             <Text style={styles.value}>₹{(tripData.initialFareAmount || 0).toFixed(2)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Pick-Up Charges</Text>
+            <Text style={styles.value}>₹{(tripData.pickupCharges || 0).toFixed(2)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Final / Effective Fare</Text>
