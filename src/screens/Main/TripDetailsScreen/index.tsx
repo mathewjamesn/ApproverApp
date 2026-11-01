@@ -110,6 +110,13 @@ export default function TripDetailsScreen({ route, navigation }: any) {
       phoneNumber: rawPhone,
       title: 'Track Driver Location',
       tripData: tripData,
+      passengerFromAddress: tripData.passengerFromAddress || (tripData.fromAddress ? {
+        geoLocation: {
+          latitude: tripData.fromAddress.latitude,
+          longitude: tripData.fromAddress.longitude,
+        },
+        locationName: tripData.fromLocation,
+      } : undefined),
     });
   };
 

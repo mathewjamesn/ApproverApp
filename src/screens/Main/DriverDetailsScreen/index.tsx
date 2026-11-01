@@ -335,6 +335,7 @@ export default function DriverDetailsScreen() {
                     (navigation.navigate as any)('DriverLocation', {
                       driverName,
                       phoneNumber: driverPhoneNumber,
+                      passengerFromAddress: driverDetails?.passengerFromAddress,
                     });
                   } else if (action.id === 'reset') {
                     handleResetRideStatus();

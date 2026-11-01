@@ -36,11 +36,29 @@ export const getStyles = (colors: ThemeColors) =>
       marginTop: 2,
       fontSize: 13,
     },
+    headerRightActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    timerBadge: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      borderRadius: 12,
+      gap: 4,
+    },
+    timerBadgeText: {
+      color: colors.primaryText,
+      fontSize: 12,
+      fontWeight: '700',
+    },
     refreshHeaderButton: {
       padding: 8,
       borderRadius: 8,
       backgroundColor: 'rgba(255, 255, 255, 0.15)',
-      marginLeft: 8,
     },
     refreshHeaderText: {
       fontSize: 18,
@@ -99,6 +117,22 @@ export const getStyles = (colors: ThemeColors) =>
       shadowRadius: 4,
       elevation: 5,
     },
+    passengerMarkerBadge: {
+      backgroundColor: '#059669', // Emerald green
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 20,
+      borderWidth: 2,
+      borderColor: '#FFFFFF',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      elevation: 5,
+    },
     markerText: {
       color: '#FFFFFF',
       fontWeight: 'bold',
@@ -124,7 +158,7 @@ export const getStyles = (colors: ThemeColors) =>
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 10,
+      marginBottom: 8,
     },
     locationTitle: {
       color: colors.textPrimary,
@@ -148,6 +182,27 @@ export const getStyles = (colors: ThemeColors) =>
       fontWeight: '700',
       textTransform: 'capitalize',
     },
+    timerCardRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: colors.tabActiveBg + '60',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 8,
+      marginBottom: 8,
+      alignSelf: 'flex-start',
+    },
+    timerPulseDot: {
+      width: 7,
+      height: 7,
+      borderRadius: 4,
+      backgroundColor: colors.success,
+    },
+    timerCardText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
     driverInfoRow: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -156,7 +211,7 @@ export const getStyles = (colors: ThemeColors) =>
       borderTopWidth: 1,
       borderBottomWidth: 1,
       borderColor: colors.border,
-      marginVertical: 8,
+      marginVertical: 6,
     },
     driverNameText: {
       fontSize: 15,
@@ -176,6 +231,30 @@ export const getStyles = (colors: ThemeColors) =>
       padding: 6,
       borderRadius: 8,
       backgroundColor: colors.tabActiveBg,
+    },
+    passengerSection: {
+      backgroundColor: colors.tabActiveBg + '50',
+      padding: 10,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginVertical: 6,
+    },
+    passengerHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginBottom: 4,
+    },
+    passengerTitle: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.textPrimary,
+    },
+    passengerAddressText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      lineHeight: 17,
     },
     detailsGrid: {
       marginVertical: 4,
@@ -198,7 +277,7 @@ export const getStyles = (colors: ThemeColors) =>
     cardActions: {
       flexDirection: 'row',
       gap: 10,
-      marginTop: 12,
+      marginTop: 10,
     },
     cardActionPrimary: {
       flex: 1,
