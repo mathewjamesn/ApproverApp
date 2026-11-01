@@ -48,6 +48,12 @@ const isCancelledTrip = (status?: string): boolean => {
   return s.includes('cancel') || s.includes('reject');
 };
 
+const isAcceptedTrip = (status?: string): boolean => {
+  if (!status) return false;
+  const s = status.toLowerCase();
+  return s.includes('accept');
+};
+
 const getCancelledDate = (trip: any): string | null => {
   return (
     trip.tripCancelledDate ||
@@ -87,9 +93,25 @@ export default function TripDetailsScreen({ route, navigation }: any) {
 
   const effectiveStatus = getEffectiveTripStatus(tripData);
   const isCancelled = isCancelledTrip(effectiveStatus);
+  const isAccepted = isAcceptedTrip(effectiveStatus) || isAcceptedTrip(tripData?.tripStatus);
   const cancelledDate = getCancelledDate(tripData);
   const fareAmount = getEffectiveFare(tripData);
   const pickupDistance = tripData.totalPickupDistance ?? tripData.pickupDistance ?? tripData.driverToPassengerDistance;
+
+  const handleTrackDriverLocation = () => {
+    const rawPhone = tripData.driverMobileNumber;
+    if (!rawPhone || rawPhone === '--' || rawPhone.trim() === '') {
+      Alert.alert('Location Unavailable', 'Driver phone number is not available to track location.');
+      return;
+    }
+
+    (navigation.navigate as any)('DriverLocation', {
+      driverName: tripData.driverName || 'Driver',
+      phoneNumber: rawPhone,
+      title: 'Track Driver Location',
+      tripData: tripData,
+    });
+  };
 
   const formatStatusDisplay = (status?: string) => {
     return status || 'Unknown';
@@ -285,6 +307,27 @@ export default function TripDetailsScreen({ route, navigation }: any) {
             <Text style={styles.label}>Driver ID</Text>
             <CopyableId value={tripData.driverIdentifier} textStyle={styles.value} />
           </View>
+          {isAccepted && (
+            <TouchableOpacity
+              onPress={handleTrackDriverLocation}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: colors.tabActiveBg,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 10,
+                alignSelf: 'flex-start',
+                marginTop: 4,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>📍</Text>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: colors.primary }}>Track Driver Location</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -328,32 +371,63 @@ export default function TripDetailsScreen({ route, navigation }: any) {
         </View>
       </ScrollView>
 
-      <TouchableOpacity
+      <View
         style={{
-          backgroundColor: colors.primary,
-          margin: 16,
-          marginBottom: (insets.bottom || 0) + 8,
-          paddingVertical: 16,
-          borderRadius: 14,
-          alignItems: 'center',
-          flexDirection: 'row',
-          justifyContent: 'center',
-          gap: 8,
-        }}
-        onPress={() => {
-          const fromLat = tripData.fromAddress?.latitude;
-          const fromLng = tripData.fromAddress?.longitude;
-          const toLat = tripData.toAddress?.latitude;
-          const toLng = tripData.toAddress?.longitude;
-          const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(tripData.fromLocation || '');
-          const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(tripData.toLocation || '');
-          const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-          Linking.openURL(url);
+          paddingHorizontal: 16,
+          paddingTop: 10,
+          paddingBottom: (insets.bottom || 0) + 8,
+          gap: 10,
+          backgroundColor: colors.background,
         }}
       >
-        <Text style={{ fontSize: 20 }}>🗺️</Text>
-        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
-      </TouchableOpacity>
+        {isAccepted && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.success,
+              paddingVertical: 16,
+              borderRadius: 14,
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
+              gap: 8,
+              shadowColor: colors.cardShadow,
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.15,
+              shadowRadius: 6,
+              elevation: 3,
+            }}
+            onPress={handleTrackDriverLocation}
+          >
+            <Text style={{ fontSize: 20 }}>📍</Text>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Track Driver Location</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: colors.primary,
+            paddingVertical: 16,
+            borderRadius: 14,
+            alignItems: 'center',
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+          onPress={() => {
+            const fromLat = tripData.fromAddress?.latitude;
+            const fromLng = tripData.fromAddress?.longitude;
+            const toLat = tripData.toAddress?.latitude;
+            const toLng = tripData.toAddress?.longitude;
+            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(tripData.fromLocation || '');
+            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(tripData.toLocation || '');
+            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
+            Linking.openURL(url);
+          }}
+        >
+          <Text style={{ fontSize: 20 }}>🗺️</Text>
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }

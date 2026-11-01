@@ -13,6 +13,14 @@ export interface Driver {
 export interface DriverLocation {
   latitude: number;
   longitude: number;
+  mobileNumber?: string;
+  status?: string;
+  isBusy?: boolean;
+  isBooked?: boolean;
+  isReadyForRide?: boolean;
+  lastLocationUpdateTimeInUTC?: string;
+  lastLocationUpdateTimeInLocalTime?: string;
+  differenceInMinutes?: number;
   raw: any;
 }
 
@@ -30,7 +38,18 @@ const parseCoordinateValue = (value: unknown): number | null => {
 };
 
 const extractDriverLocation = (payload: any): DriverLocation | null => {
-  const candidates = [payload, payload?.data, payload?.location, payload?.Location];
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidates = [
+    payload?.location,
+    payload?.Location,
+    payload,
+    payload?.data,
+    payload?.data?.location,
+    payload?.data?.Location,
+  ];
 
   for (const candidate of candidates) {
     if (!candidate || typeof candidate !== 'object') {
@@ -61,6 +80,14 @@ const extractDriverLocation = (payload: any): DriverLocation | null => {
       return {
         latitude,
         longitude,
+        mobileNumber: payload.mobileNumber || candidate.mobileNumber,
+        status: payload.status || candidate.status,
+        isBusy: payload.isBusy !== undefined ? payload.isBusy : candidate.isBusy,
+        isBooked: payload.isBooked !== undefined ? payload.isBooked : candidate.isBooked,
+        isReadyForRide: payload.isReadyForRide !== undefined ? payload.isReadyForRide : candidate.isReadyForRide,
+        lastLocationUpdateTimeInUTC: payload.lastLocationUpdateTimeInUTC || candidate.lastLocationUpdateTimeInUTC,
+        lastLocationUpdateTimeInLocalTime: payload.lastLocationUpdateTimeInLocalTime || candidate.lastLocationUpdateTimeInLocalTime,
+        differenceInMinutes: payload.differenceInMinutes !== undefined ? payload.differenceInMinutes : candidate.differenceInMinutes,
         raw: payload,
       };
     }
@@ -114,7 +141,10 @@ export const driverService = {
 
   getDriverLocationDetails: async (phone: string): Promise<DriverLocation | null> => {
     try {
-      const response = await apiClient.get(`${ENDPOINTS.DRIVER.GET_LOCATION_DETAILS}${phone}/LocationDetails`);
+      // Normalize to 10-digit phone number if full Indian phone with +91 is provided, else clean digits
+      const digitsOnly = phone.replace(/\D/g, '');
+      const cleanPhone = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : (digitsOnly || phone.trim());
+      const response = await apiClient.get(`${ENDPOINTS.DRIVER.GET_LOCATION_DETAILS}${cleanPhone}/LocationDetails`);
       return extractDriverLocation(response.data);
     } catch (error: any) {
       throw error;

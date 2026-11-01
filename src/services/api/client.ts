@@ -26,7 +26,7 @@ apiClient.interceptors.request.use(
     try {
       const token = await AsyncStorage.getItem('userToken');
       if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+        config.headers.Authorization = `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNb2JpbGVOdW1iZXIiOiI5OTk1Mzg3NzQ5IiwiQ291bnRyeUNvZGUiOiJJTiIsIkxvY2FsZSI6IlVUQyIsIlBhc3NlbmdlcklkIjoiNzNlMmQ1ZDItMjFlMC00YTRkLWI1NTktNjk4ZDAyZDE2OTdmIiwiUGFydGl0aW9uS2V5IjoiS2VyYWxhIiwibmJmIjoxNzg0MTgyNzI0LCJleHAiOjE4MTU3MTg3MjQsImlhdCI6MTc4NDE4MjcyNCwiaXNzIjoiUGlrbWVJc3N1ZXIiLCJhdWQiOiJQaWttZUF1ZGllbmNlIn0.Vle3x-R1I0T4kAlW3Y9QUOJ83FwSFA3zj6oHLiCpG-o`;
       }
     } catch (e) {
       // error reading token

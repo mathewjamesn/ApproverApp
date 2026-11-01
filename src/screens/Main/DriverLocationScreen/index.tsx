@@ -1,70 +1,124 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View, Linking } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { ActivityIndicator, Text, TouchableOpacity, View, Linking, Alert } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { driverService, DriverLocation } from '../../../services/api/driverService';
 import { getStyles } from './styles';
 
-const DUMMY_LOCATION: DriverLocation = {
-  latitude: 9.931233,
-  longitude: 76.267303,
-  raw: {
-    source: 'dummy-preview',
-    updatedAt: '2026-07-04T12:00:00Z',
-  },
+const formatTimeDisplay = (dateStr?: string | null): string => {
+  if (!dateStr) return '--';
+  if (dateStr.includes('T') || dateStr.includes('-')) {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+  }
+  return dateStr;
+};
+
+const formatDifferenceMinutes = (diff?: number): string => {
+  if (diff === undefined || diff === null) return '';
+  if (diff < 1) return 'Just now';
+  const mins = Math.round(diff);
+  if (mins === 1) return '1 min ago';
+  if (mins < 60) return `${mins} mins ago`;
+  const hrs = Math.floor(mins / 60);
+  return `${hrs}h ${mins % 60}m ago`;
 };
 
 export default function DriverLocationScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = getStyles(colors);
+  const mapRef = useRef<MapView | null>(null);
 
   const driverName = route.params?.driverName || 'Driver';
-  const phoneNumber = route.params?.phoneNumber || '+91 98765 43210';
+  const rawPhoneNumber = route.params?.phoneNumber || '';
+  const screenTitle = route.params?.title || 'Track Driver Location';
+  const tripData = route.params?.tripData;
 
   const [isLoading, setIsLoading] = useState(true);
-  const [location, setLocation] = useState<DriverLocation | null>();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [location, setLocation] = useState<DriverLocation | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
-  const [isUsingDummyData, setIsUsingDummyData] = useState(true);
+
+  const fetchLocation = useCallback(async (isManualRefresh = false) => {
+    if (!rawPhoneNumber || rawPhoneNumber === '--' || rawPhoneNumber.trim() === '') {
+      setErrorMessage('Driver phone number not available.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (isManualRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+    setErrorMessage('');
+
+    try {
+      const response = await driverService.getDriverLocationDetails(rawPhoneNumber);
+      if (!response) {
+        setErrorMessage('Live location details could not be found for this driver.');
+      } else {
+        setLocation(response);
+
+        // Center map to new coordinates
+        if (mapRef.current && response.latitude && response.longitude) {
+          mapRef.current.animateToRegion({
+            latitude: response.latitude,
+            longitude: response.longitude,
+            latitudeDelta: 0.015,
+            longitudeDelta: 0.015,
+          }, 600);
+        }
+      }
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Unable to load live location right now.';
+      setErrorMessage(msg);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [rawPhoneNumber]);
 
   useEffect(() => {
-    const fetchLocation = async () => {
-      if (!phoneNumber) {
-        setErrorMessage('Driver location not available.');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        const response = await driverService.getDriverLocationDetails(phoneNumber);
-console.log('response', response);
-
-        if (!response) {
-          setErrorMessage('Live location not available. Showing preview data.');
-          return;
-        }
-
-        setLocation(response);
-        setIsUsingDummyData(false);
-      } catch {
-        setErrorMessage('Unable to load live location right now. Showing preview data.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLocation();
-  }, [phoneNumber]);
+  }, [fetchLocation]);
+
+  const handleOpenExternalMaps = () => {
+    if (!location) return;
+    const url = `https://www.google.com/maps/search/?api=1&query=${location.latitude},${location.longitude}`;
+    Linking.openURL(url).catch(() => {
+      Alert.alert('Error', 'Unable to open Google Maps');
+    });
+  };
+
+  const handleCall = () => {
+    const cleanPhone = (location?.mobileNumber || rawPhoneNumber).replace(/[^\d+]/g, '');
+    if (cleanPhone) {
+      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
+    }
+  };
+
+  const handleSms = () => {
+    const cleanPhone = (location?.mobileNumber || rawPhoneNumber).replace(/[^\d+]/g, '');
+    if (cleanPhone) {
+      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+    }
+  };
 
   const region = location
     ? {
         latitude: location.latitude,
         longitude: location.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+        latitudeDelta: 0.015,
+        longitudeDelta: 0.015,
       }
     : undefined;
+
+  const isOnline = (location?.status || '').toLowerCase() === 'online';
 
   return (
     <View style={styles.container}>
@@ -73,9 +127,20 @@ console.log('response', response);
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerTextWrap}>
-          <Text style={styles.headerTitle}>Locate Driver</Text>
+          <Text style={styles.headerTitle}>{screenTitle}</Text>
           <Text style={styles.headerSubtitle}>{driverName}</Text>
         </View>
+        <TouchableOpacity
+          style={styles.refreshHeaderButton}
+          onPress={() => fetchLocation(true)}
+          disabled={isLoading || isRefreshing}
+        >
+          {isRefreshing ? (
+            <ActivityIndicator size="small" color={colors.primaryText} />
+          ) : (
+            <Text style={styles.refreshHeaderText}>🔄</Text>
+          )}
+        </TouchableOpacity>
       </View>
 
       {isLoading ? (
@@ -85,58 +150,182 @@ console.log('response', response);
         </View>
       ) : location && region ? (
         <View style={styles.mapContainer}>
-          <MapView style={styles.map} initialRegion={region} region={region}>
+          <MapView
+            ref={mapRef}
+            style={styles.map}
+            initialRegion={region}
+          >
+            {/* Driver Marker */}
             <Marker
               coordinate={{
                 latitude: location.latitude,
                 longitude: location.longitude,
               }}
               title={driverName}
-              description={phoneNumber}
-            />
+              description={`Status: ${location.status || 'Active'}`}
+            >
+              <View style={styles.markerBadge}>
+                <Text style={{ fontSize: 16 }}>🚗</Text>
+                <Text style={styles.markerText}>{driverName}</Text>
+              </View>
+            </Marker>
+
+            {/* Optional Pickup Marker if available */}
+            {tripData?.fromAddress?.latitude && tripData?.fromAddress?.longitude && (
+              <Marker
+                coordinate={{
+                  latitude: tripData.fromAddress.latitude,
+                  longitude: tripData.fromAddress.longitude,
+                }}
+                title="Pickup Location"
+                description={tripData.fromLocation}
+                pinColor="blue"
+              />
+            )}
+
+            {/* Optional Destination Marker if available */}
+            {tripData?.toAddress?.latitude && tripData?.toAddress?.longitude && (
+              <Marker
+                coordinate={{
+                  latitude: tripData.toAddress.latitude,
+                  longitude: tripData.toAddress.longitude,
+                }}
+                title="Drop Location"
+                description={tripData.toLocation}
+                pinColor="green"
+              />
+            )}
           </MapView>
 
-          <View style={styles.locationCard}>
-            <Text style={styles.locationTitle}>Latest Coordinates</Text>
-            {isUsingDummyData ? (
-              <Text style={styles.previewBadge}>Preview data</Text>
-            ) : null}
-            <Text style={styles.locationValue}>Latitude: {location.latitude.toFixed(6)}</Text>
-            <Text style={styles.locationValue}>Longitude: {location.longitude.toFixed(6)}</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-              <Text style={styles.locationValue}>Phone: {phoneNumber}</Text>
-              {phoneNumber && phoneNumber !== '--' && (
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <TouchableOpacity
-                    onPress={() => {
-                      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-                      Linking.openURL(`tel:${cleanPhone}`).catch(err => console.log('Error opening dialer', err));
-                    }}
-                    style={{ padding: 4 }}
+          <View style={[styles.locationCard, { marginBottom: (insets.bottom || 0) + 12 }]}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.locationTitle}>Driver Live Tracking</Text>
+              <View style={styles.badgesRow}>
+                {location.status ? (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: isOnline ? colors.success + '20' : colors.textSecondary + '20',
+                        borderColor: isOnline ? colors.success : colors.textSecondary,
+                      },
+                    ]}
                   >
-                    <Text style={{ fontSize: 16 }}>📞</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    onPress={() => {
-                      const cleanPhone = phoneNumber.replace(/[^\d+]/g, '');
-                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
-                    }}
-                    style={{ padding: 4 }}
+                    <Text
+                      style={[
+                        styles.statusBadgeText,
+                        { color: isOnline ? colors.success : colors.textSecondary },
+                      ]}
+                    >
+                      ● {location.status}
+                    </Text>
+                  </View>
+                ) : null}
+
+                {location.isReadyForRide && (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: colors.info + '20',
+                        borderColor: colors.info,
+                      },
+                    ]}
                   >
-                    <Text style={{ fontSize: 16 }}>💬</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
+                    <Text style={[styles.statusBadgeText, { color: colors.info }]}>Ready</Text>
+                  </View>
+                )}
+
+                {location.isBusy && (
+                  <View
+                    style={[
+                      styles.statusBadge,
+                      {
+                        backgroundColor: '#F59E0B20',
+                        borderColor: '#F59E0B',
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.statusBadgeText, { color: '#F59E0B' }]}>Busy</Text>
+                  </View>
+                )}
+              </View>
             </View>
-            {errorMessage ? (
-              <Text style={styles.previewHelper}>{errorMessage}</Text>
-            ) : null}
+
+            <View style={styles.driverInfoRow}>
+              <View>
+                <Text style={styles.driverNameText}>{driverName}</Text>
+                <Text style={styles.driverPhoneText}>
+                  {location.mobileNumber || rawPhoneNumber || '--'}
+                </Text>
+              </View>
+              <View style={styles.phoneActions}>
+                <TouchableOpacity onPress={handleCall} style={styles.phoneActionBtn}>
+                  <Text style={{ fontSize: 16 }}>📞</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleSms} style={styles.phoneActionBtn}>
+                  <Text style={{ fontSize: 16 }}>💬</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.detailsGrid}>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>Coordinates</Text>
+                <Text style={styles.detailValue}>
+                  {location.latitude.toFixed(5)}, {location.longitude.toFixed(5)}
+                </Text>
+              </View>
+
+              {location.lastLocationUpdateTimeInLocalTime ? (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Last Updated</Text>
+                  <Text style={styles.detailValue}>
+                    {formatTimeDisplay(location.lastLocationUpdateTimeInLocalTime)}
+                    {location.differenceInMinutes !== undefined
+                      ? ` (${formatDifferenceMinutes(location.differenceInMinutes)})`
+                      : ''}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={styles.cardActionSecondary}
+                onPress={() => fetchLocation(true)}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <>
+                    <Text style={{ fontSize: 15 }}>🔄</Text>
+                    <Text style={styles.cardActionSecondaryText}>Refresh</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.cardActionPrimary}
+                onPress={handleOpenExternalMaps}
+              >
+                <Text style={{ fontSize: 15 }}>🗺️</Text>
+                <Text style={styles.cardActionPrimaryText}>Open in Maps</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       ) : (
         <View style={styles.centerContent}>
-          <Text style={styles.errorTitle}>Location unavailable</Text>
-          <Text style={styles.helperText}>{errorMessage || 'Driver location not available.'}</Text>
+          <Text style={{ fontSize: 36, marginBottom: 8 }}>📍</Text>
+          <Text style={styles.errorTitle}>Location Unavailable</Text>
+          <Text style={styles.helperText}>
+            {errorMessage || 'Unable to retrieve the driver live location.'}
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => fetchLocation(false)}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       )}
     </View>
