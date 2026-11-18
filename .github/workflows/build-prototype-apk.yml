@@ -1,4 +1,4 @@
-name: Build Approver Prototype APK
+name: Build TOK Approver APK
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  prototype:
+  tok-approver:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -27,18 +27,38 @@ jobs:
         with:
           gradle-version: 8.10.2
 
-      - name: Build prototype APK
+      # Release signing key. Add these repository secrets to get a stable signature
+      # (so new versions install over old ones). Without them the build uses the debug key.
+      - name: Restore signing key (if configured)
+        env:
+          KEYSTORE_B64: ${{ secrets.TOK_KEYSTORE_B64 }}
+          KS_PASS: ${{ secrets.TOK_KEYSTORE_PASSWORD }}
+          KS_ALIAS: ${{ secrets.TOK_KEY_ALIAS }}
+          KS_KEY_PASS: ${{ secrets.TOK_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/tok.jks"
+            echo "KEYSTORE_FILE=$RUNNER_TEMP/tok.jks" >> "$GITHUB_ENV"
+            echo "KEYSTORE_PASSWORD=$KS_PASS" >> "$GITHUB_ENV"
+            echo "KEY_ALIAS=$KS_ALIAS" >> "$GITHUB_ENV"
+            echo "KEY_PASSWORD=$KS_KEY_PASS" >> "$GITHUB_ENV"
+            echo "Using release signing key"
+          else
+            echo "No signing secrets set, using the debug key"
+          fi
+
+      - name: Build APK
         working-directory: prototype-app
-        run: gradle assembleRelease --no-daemon
+        run: gradle assembleRelease --no-daemon -Pvc=${{ github.run_number }} -Pvn=1.0.${{ github.run_number }}
 
       - name: Name the APK
         run: |
           mkdir -p dist
-          cp prototype-app/app/build/outputs/apk/release/app-release.apk "dist/ApproverPrototype-${{ github.run_number }}.apk"
+          cp prototype-app/app/build/outputs/apk/release/app-release.apk "dist/TOKApprover-${{ github.run_number }}.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ApproverPrototype-apk
+          name: TOKApprover-apk
           path: dist/*.apk
           retention-days: 30
 
@@ -46,6 +66,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "prototype-${{ github.run_number }}" dist/*.apk \
-            --title "Approver Prototype (black and lime) build ${{ github.run_number }}" \
-            --notes "Self-contained prototype with sample data. No backend needed. Built from ${{ github.sha }}"
+          gh release create "tok-${{ github.run_number }}" dist/*.apk \
+            --title "TOK Approver build ${{ github.run_number }}" \
+            --notes "TOK Approver for Android. Sign in with your customer-care number. Built from ${{ github.sha }}"

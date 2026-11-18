@@ -6,7 +6,7 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
-        android:label="Approver Prototype"
+        android:label="TOK Approver"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
 

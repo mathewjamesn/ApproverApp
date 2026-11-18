@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}img{max-width:100%}html{color-scheme:light dark}</style>
-<title>Pikme Approver Prototype</title>
+<title>TOK Approver</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
@@ -1361,7 +1361,7 @@ function showLogin(msg){
   loginEl.hidden=false;loginStep1(msg);
 }
 function loginStep1(msg){
-  loginEl.innerHTML=`<div class="lg"><div class="lgmark">${ic('check',30)}</div><h1>Approver</h1><p class="muted">Sign in with your customer-care number</p>
+  loginEl.innerHTML=`<div class="lg"><div class="lgmark">${ic('check',30)}</div><h1>TOK Approver</h1><p class="muted">Sign in with your customer-care number</p>
    <div class="seg" id="lgEnv" style="margin:18px 0 12px"><button data-e="PRODUCTION" class="${ENV==='PRODUCTION'?'on':''}">Production</button><button data-e="STAGING" class="${ENV==='STAGING'?'on':''}">Staging</button></div>
    <div class="field"><span>+91</span><input id="lgPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" autocomplete="tel"></div>
    <div class="lgerr" id="lgErr">${esc(msg||'')}</div>
