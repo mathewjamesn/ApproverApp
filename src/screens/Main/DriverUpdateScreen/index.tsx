@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import {
   View,
   Text,
@@ -566,9 +567,7 @@ export default function DriverUpdateScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       const cleanPhone = driverDetails?.mobileNumber?.replace(/[^\d+]/g, '');
-                      Linking.openURL(`sms:${cleanPhone}`).catch(err =>
-                        console.log('Error opening SMS', err),
-                      );
+                      openMessageOptions(cleanPhone);
                     }}
                     style={{
                       width: 40,

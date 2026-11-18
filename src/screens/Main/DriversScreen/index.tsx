@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Linking, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
 import { driverService, Driver } from '../../../services/api/driverService';
@@ -11,6 +12,7 @@ type FilterTab = 'PENDING' | 'REJECTED' | 'ADD_ON';
 export default function DriversScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const route = useRoute<any>();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
@@ -62,9 +64,11 @@ export default function DriversScreen() {
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
-    setActiveTab('PENDING');
-    fetchDrivers('PENDING');
-  }, []);
+    const startTab: FilterTab = route.params?.tab || 'PENDING';
+    setActiveTab(startTab);
+    fetchDrivers(startTab);
+    if (route.params?.tab) (navigation as any).setParams({ tab: undefined });
+  }, [route.params?.tab]);
 
   useFocusEffect(
     useCallback(() => {
@@ -260,7 +264,7 @@ export default function DriversScreen() {
                                 <TouchableOpacity
                                   onPress={() => {
                                     const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
-                                    Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                                    openMessageOptions(cleanPhone);
                                   }}
                                   style={{ padding: 4 }}
                                 >
@@ -372,7 +376,7 @@ export default function DriversScreen() {
                                 <TouchableOpacity
                                   onPress={() => {
                                     const cleanPhone = displayPhone.replace(/[^\d+]/g, '');
-                                    Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                                    openMessageOptions(cleanPhone);
                                   }}
                                   style={{ padding: 4 }}
                                 >

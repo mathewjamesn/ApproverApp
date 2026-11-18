@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import {
   View,
   Text,
@@ -188,9 +189,7 @@ export default function DriverViewDetailsScreen() {
                   style={styles.actionIconBtn}
                   onPress={() => {
                     const cleanPhone = phone.replace(/[^\d+]/g, '');
-                    Linking.openURL(`sms:${cleanPhone}`).catch(err =>
-                      console.log('Error opening SMS', err),
-                    );
+                    openMessageOptions(cleanPhone);
                   }}
                 >
                   <Text style={{ fontSize: 16 }}>💬</Text>

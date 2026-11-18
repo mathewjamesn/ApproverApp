@@ -16,35 +16,35 @@ export interface ThemeColors {
 }
 
 export const lightColors: ThemeColors = {
-  background: '#F8F9FA',
+  background: '#F3F3F3',
   card: '#FFFFFF',
-  textPrimary: '#1E293B',       // Slate 800
-  textSecondary: '#64748B',     // Slate 500
-  border: '#F1F5F9',            // Slate 100
-  primary: '#0B6A96',           // GMTApprover Blue
+  textPrimary: '#000000',
+  textSecondary: '#5E5E5E',
+  border: '#E2E2E2',
+  primary: '#000000',
   primaryText: '#FFFFFF',
-  danger: '#EF4444',            // Red 500
+  danger: '#B3261E',
   cardShadow: '#000000',
-  tabActiveBg: '#E0F2FE',       // Sky 100
-  inputBg: '#FAFAF9',           // Stone 50
-  success: '#10B981',           // Emerald 500
-  info: '#3B82F6',              // Blue 500
-  accent: '#0EA5E9',            // Sky 500
+  tabActiveBg: '#C6F68D',       // light green
+  inputBg: '#F3F3F3',
+  success: '#0E7C4A',
+  info: '#1F5FBF',
+  accent: '#0E7C4A',
 };
 
 export const darkColors: ThemeColors = {
-  background: '#0F172A',        // Slate 900
-  card: '#041838ff',              // Slate 800
-  textPrimary: '#F8FAFC',       // Slate 50
-  textSecondary: '#94A3B8',     // Slate 400
-  border: '#334155',            // Slate 700
-  primary: '#1E293B',           // Deep space matching app background tone for headers
-  primaryText: '#F8FAFC',
-  danger: '#F87171',            // Red 400
+  background: '#000000',
+  card: '#1F1F1F',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#B5B5B5',
+  border: '#333333',
+  primary: '#2A2A2A',
+  primaryText: '#FFFFFF',
+  danger: '#FF8A80',
   cardShadow: '#000000',
-  tabActiveBg: '#334155',       // Slate 700
-  inputBg: '#0F172A',           // Slate 900
-  success: '#34D399',           // Emerald 400
-  info: '#60A5FA',              // Blue 400
-  accent: '#38BDF8',            // Sky 400
+  tabActiveBg: '#2B3B1A',
+  inputBg: '#1F1F1F',
+  success: '#7BE0A6',
+  info: '#8AB4FF',
+  accent: '#C6F68D',
 };

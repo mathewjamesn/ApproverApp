@@ -3,15 +3,13 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../../theme/ThemeContext';
-import { getStyles } from './styles';
 import { useEnvironment } from '../../../context/EnvironmentContext';
 
 interface Tile {
   title: string;
   icon: string;
   route: string;
-  tint: string;
-  badge?: string;
+  params?: Record<string, any>;
 }
 
 interface Section {
@@ -21,77 +19,90 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
+    title: 'Approvals',
+    tiles: [
+      { title: 'Pending Drivers', icon: '🕒', route: 'Drivers', params: { tab: 'PENDING' } },
+      { title: 'Vehicle Add-on', icon: '🚗', route: 'Drivers', params: { tab: 'ADD_ON' } },
+      { title: 'Rejected Drivers', icon: '🚫', route: 'Drivers', params: { tab: 'REJECTED' } },
+    ],
+  },
+  {
     title: 'Operations',
     tiles: [
-      { title: 'Live Map', icon: '🗺️', route: 'LiveMap', tint: '#0B6A96', badge: 'NEW' },
-      { title: 'Trips', icon: '📑', route: 'Trips', tint: '#3B82F6' },
-      { title: 'Drivers', icon: '🧑‍✈️', route: 'Drivers', tint: '#10B981' },
-      { title: 'Passengers', icon: '👥', route: 'Passengers', tint: '#8B5CF6' },
+      { title: 'Live Map', icon: '🗺️', route: 'LiveMap' },
+      { title: 'Trips', icon: '📑', route: 'Trips' },
+      { title: 'Drivers', icon: '🧑‍✈️', route: 'Drivers' },
+      { title: 'Passengers', icon: '👥', route: 'Passengers' },
     ],
   },
   {
     title: 'Insights',
     tiles: [
-      { title: 'Online by City', icon: '🏙️', route: 'OnlineDriversByCity', tint: '#14B8A6', badge: 'NEW' },
-      { title: 'Top Online Drivers', icon: '🏆', route: 'TopOnlineDrivers', tint: '#F59E0B', badge: 'NEW' },
-      { title: 'Reports', icon: '📊', route: 'Reports', tint: '#0EA5E9' },
-      { title: 'Missed Requests', icon: '⚠️', route: 'MissedRequests', tint: '#EF4444', badge: 'NEW' },
+      { title: 'Online by City', icon: '🏙️', route: 'OnlineDriversByCity' },
+      { title: 'Top Online Drivers', icon: '🏆', route: 'TopOnlineDrivers' },
+      { title: 'Reports', icon: '📊', route: 'Reports' },
+      { title: 'Missed Requests', icon: '⚠️', route: 'MissedRequests' },
     ],
   },
   {
     title: 'Tools',
     tiles: [
-      { title: 'Get OTP', icon: '📱', route: 'GetOTP', tint: '#6366F1' },
-      { title: 'Fare Multiplier', icon: '🎛️', route: 'FareMultiplier', tint: '#F97316' },
-      { title: 'Airport Multiplier', icon: '✈️', route: 'AirportFareMultiplier', tint: '#06B6D4' },
-      { title: 'Send Notification', icon: '📤', route: 'SendNotification', tint: '#EC4899' },
+      { title: 'Get OTP', icon: '🔑', route: 'GetOTP' },
+      { title: 'Fare Multiplier', icon: '🎛️', route: 'FareMultiplier' },
+      { title: 'Airport Multiplier', icon: '✈️', route: 'AirportFareMultiplier' },
+      { title: 'Send Notification', icon: '📤', route: 'SendNotification' },
     ],
   },
 ];
+
+const LIME = '#C6F68D';
 
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const { environment } = useEnvironment();
-  const styles = getStyles(colors);
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const today = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 
   return (
-    <View style={styles.mainContainer}>
-      <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
-      <View style={[styles.header, { paddingTop: insets.top + 16, paddingBottom: 28 }]}>
-        <View style={styles.headerRow}>
-          <View>
-            <Text style={styles.greetingTitle}>Hello, Admin 👋</Text>
-            <Text style={styles.greetingSubtitle}>What would you like to check today?</Text>
+    <View style={[s.root, { backgroundColor: colors.background }]}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      <View style={[s.header, { paddingTop: insets.top + 24 }]}>
+        <View style={s.headerRow}>
+          <View style={{ flex: 1 }}>
+            <Text style={s.greet}>
+              {greeting} · {today}
+            </Text>
+            <Text style={s.hello}>Hello, Admin</Text>
           </View>
-          <View style={styles.environmentBadge}>
-            <Text style={styles.environmentBadgeText}>{environment}</Text>
+          <View style={s.env}>
+            <Text style={s.envText}>{environment}</Text>
           </View>
         </View>
       </View>
 
-      <ScrollView style={[styles.scrollView, local.sheet, { backgroundColor: colors.background }]} bounces={false} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 30 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 18, paddingBottom: 24 }}
+      >
         {SECTIONS.map((section) => (
-          <View key={section.title} style={{ marginBottom: 18 }}>
-            <Text style={[local.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
-            <View style={local.grid}>
+          <View key={section.title} style={{ marginBottom: 16 }}>
+            <Text style={[s.sectionTitle, { color: colors.textSecondary }]}>{section.title}</Text>
+            <View style={s.grid}>
               {section.tiles.map((tile) => (
                 <TouchableOpacity
                   key={tile.title}
                   activeOpacity={0.8}
-                  style={[local.tile, { backgroundColor: colors.card, shadowColor: colors.cardShadow }]}
-                  onPress={() => navigation.navigate(tile.route)}
+                  style={[s.tile, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => navigation.navigate(tile.route, tile.params)}
                 >
-                  {tile.badge ? (
-                    <View style={[local.badge, { backgroundColor: colors.accent }]}>
-                      <Text style={local.badgeText}>{tile.badge}</Text>
-                    </View>
-                  ) : null}
-                  <View style={[local.iconWrap, { backgroundColor: tile.tint + '22' }]}>
-                    <Text style={local.icon}>{tile.icon}</Text>
+                  <View style={[s.iconWrap, { backgroundColor: colors.tabActiveBg }]}>
+                    <Text style={s.icon}>{tile.icon}</Text>
                   </View>
-                  <Text style={[local.tileText, { color: colors.textPrimary }]} numberOfLines={2}>
+                  <Text style={[s.tileText, { color: colors.textPrimary }]} numberOfLines={2}>
                     {tile.title}
                   </Text>
                 </TouchableOpacity>
@@ -104,26 +115,40 @@ export default function HomeScreen() {
   );
 }
 
-const local = StyleSheet.create({
-  sheet: { marginTop: -16, borderTopLeftRadius: 24, borderTopRightRadius: 24 },
-  sectionTitle: { fontSize: 12, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase', marginBottom: 10, marginLeft: 2 },
+const s = StyleSheet.create({
+  root: { flex: 1 },
+  header: {
+    backgroundColor: '#000',
+    paddingHorizontal: 18,
+    paddingBottom: 26,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  headerRow: { flexDirection: 'row', alignItems: 'center' },
+  greet: { color: '#B5B5B5', fontSize: 13, fontWeight: '600' },
+  hello: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 2 },
+  env: { backgroundColor: LIME, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
+  envText: { color: '#000', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+    marginLeft: 2,
+  },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   tile: {
-    width: '23%',
+    width: '22.5%',
     flexGrow: 1,
     minWidth: 76,
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 4,
     borderRadius: 18,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.07,
-    shadowRadius: 10,
-    elevation: 2,
+    borderWidth: 1,
   },
   iconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 8 },
   icon: { fontSize: 22 },
-  tileText: { fontSize: 11.5, fontWeight: '600', textAlign: 'center' },
-  badge: { position: 'absolute', top: 6, right: 6, borderRadius: 999, paddingHorizontal: 5, paddingVertical: 1 },
-  badgeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+  tileText: { fontSize: 11.5, fontWeight: '700', textAlign: 'center' },
 });

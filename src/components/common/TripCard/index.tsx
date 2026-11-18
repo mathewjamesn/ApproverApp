@@ -40,6 +40,7 @@ export default function TripCard({ trip, hideDriver, highlight }: Props) {
   const fare = getEffectiveFare(trip);
   const pickupDistance = trip.totalPickupDistance ?? trip.pickupDistance ?? trip.driverToPassengerDistance;
   const kind = getTripKind(trip);
+  const showRoute = /complete/i.test(effectiveStatus) && kind !== 'Rental';
   const kindMeta = TRIP_KIND_META[kind];
   const rentalPackage = getRentalPackage(trip);
   const reservationTime = getReservationTime(trip);
@@ -141,6 +142,7 @@ export default function TripCard({ trip, hideDriver, highlight }: Props) {
             <Text style={styles.btnText}>📍  Track Driver</Text>
           </TouchableOpacity>
         )}
+        {showRoute && (
         <TouchableOpacity
           style={[styles.btn, { backgroundColor: isAccepted ? colors.tabActiveBg : colors.primary }]}
           onPress={() => Linking.openURL(openRouteInGoogleMaps(trip))}
@@ -148,6 +150,7 @@ export default function TripCard({ trip, hideDriver, highlight }: Props) {
         >
           <Text style={[styles.btnText, isAccepted && { color: colors.accent }]}>🗺️  Route Info</Text>
         </TouchableOpacity>
+        )}
       </View>
     </TouchableOpacity>
   );

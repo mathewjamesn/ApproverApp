@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import { ActivityIndicator, Text, TouchableOpacity, View, Linking, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import axios from 'axios';
@@ -365,7 +366,7 @@ export default function DriverLocationScreen({ route, navigation }: any) {
   const handleSms = () => {
     const cleanPhone = (location?.mobileNumber || rawPhoneNumber).replace(/[^\d+]/g, '');
     if (cleanPhone) {
-      Linking.openURL(`sms:${cleanPhone}`).catch((err) => console.log('Error opening SMS', err));
+      openMessageOptions(cleanPhone);
     }
   };
 

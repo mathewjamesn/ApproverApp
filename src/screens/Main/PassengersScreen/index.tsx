@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Modal, Keyboard, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -277,7 +278,7 @@ export default function PassengersScreen() {
                       <TouchableOpacity
                         onPress={() => {
                           const cleanPhone = passenger.mobileNumber.replace(/[^\d+]/g, '');
-                          Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                          openMessageOptions(cleanPhone);
                         }}
                         style={{ padding: 4 }}
                       >

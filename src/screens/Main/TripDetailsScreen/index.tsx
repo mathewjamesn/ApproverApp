@@ -1,4 +1,5 @@
 import React from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import { View, Text, TouchableOpacity, ScrollView, Alert, Linking, StatusBar } from 'react-native';
 import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,6 +72,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
 
   const statusColor = resolveStatusColor(colors, effectiveStatus);
   const kind = getTripKind(tripData);
+  const showRoute = /complete/i.test(effectiveStatus) && kind !== 'Rental';
   const kindMeta = TRIP_KIND_META[kind];
   const rentalPackage = getRentalPackage(tripData);
   const reservationTime = getReservationTime(tripData);
@@ -244,7 +246,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
                   <TouchableOpacity
                     onPress={() => {
                       const cleanPhone = tripData.driverMobileNumber.replace(/[^\d+]/g, '');
-                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                      openMessageOptions(cleanPhone);
                     }}
                     style={{ padding: 4 }}
                   >
@@ -309,7 +311,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
                   <TouchableOpacity
                     onPress={() => {
                       const cleanPhone = tripData.passengerMobileNumber.replace(/[^\d+]/g, '');
-                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                      openMessageOptions(cleanPhone);
                     }}
                     style={{ padding: 4 }}
                   >
@@ -358,6 +360,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           </TouchableOpacity>
         )}
 
+        {showRoute && (
         <TouchableOpacity
           style={{
             backgroundColor: colors.primary,
@@ -382,6 +385,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           <Text style={{ fontSize: 20 }}>🗺️</Text>
           <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Route Info</Text>
         </TouchableOpacity>
+        )}
       </View>
     </View>
   );

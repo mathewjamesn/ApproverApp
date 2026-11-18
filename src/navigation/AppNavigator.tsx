@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Text, View, ActivityIndicator, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Import Screens
@@ -35,52 +36,44 @@ import { useEnvironment } from '../context/EnvironmentContext';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+const TabIcon = ({ glyph, focused }: { glyph: string; focused: boolean }) => (
+  <Text style={{ fontSize: 22, opacity: focused ? 1 : 0.6 }}>{glyph}</Text>
+);
+
 function MainTabs() {
-  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
-          backgroundColor: colors.card,
+          backgroundColor: '#000000',
           borderTopWidth: 0,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          height: 85,
-          paddingBottom: 25,
-          paddingTop: 10,
-          shadowColor: colors.cardShadow,
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.08,
-          shadowRadius: 12,
-          elevation: 12,
+          borderRadius: 28,
+          height: 66,
+          marginHorizontal: 14,
+          marginBottom: Math.max(insets.bottom, 12) + 14,
+          paddingTop: 6,
+          paddingBottom: 6,
+          elevation: 14,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.25,
+          shadowRadius: 14,
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarItemStyle: { borderRadius: 22, marginHorizontal: 4 },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+        tabBarActiveBackgroundColor: '#C6F68D',
+        tabBarActiveTintColor: '#000000',
+        tabBarInactiveTintColor: '#A8A8A8',
       }}
     >
-      <Tab.Screen
-        name="Home"
-        component={HomeScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, opacity: color === colors.primary ? 1 : 0.5 }}>🏠</Text> }}
-      />
-      <Tab.Screen
-        name="Trips"
-        component={TripsScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, opacity: color === colors.primary ? 1 : 0.5 }}>🚗</Text> }}
-      />
-      <Tab.Screen
-        name="Drivers"
-        component={DriversScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, opacity: color === colors.primary ? 1 : 0.5 }}>🧑‍✈️</Text> }}
-      />
-      <Tab.Screen
-        name="Menu"
-        component={MenuScreen}
-        options={{ tabBarIcon: ({ color }) => <Text style={{ fontSize: 24, opacity: color === colors.primary ? 1 : 0.5 }}>☰</Text> }}
-      />
+      <Tab.Screen name="Home" component={HomeScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="🏠" focused={focused} /> }} />
+      <Tab.Screen name="Trips" component={TripsScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="🚗" focused={focused} /> }} />
+      <Tab.Screen name="Drivers" component={DriversScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="🧑‍✈️" focused={focused} /> }} />
+      <Tab.Screen name="Menu" component={MenuScreen} options={{ tabBarIcon: ({ focused }) => <TabIcon glyph="☰" focused={focused} /> }} />
     </Tab.Navigator>
   );
 }

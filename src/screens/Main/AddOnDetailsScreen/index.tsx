@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import {
   View,
   Text,
@@ -215,9 +216,7 @@ export default function AddOnDetailsScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                       onPress={() =>
-                        Linking.openURL(`sms:${driverPhone.replace(/[^\d+]/g, '')}`).catch(
-                          err => console.log('SMS error', err)
-                        )
+                        openMessageOptions(driverPhone.replace(/[^\d+]/g, ''))
                       }
                       style={{ padding: 4 }}
                     >

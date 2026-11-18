@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { openMessageOptions } from '../../../utils/messaging';
 import { View, Text, ScrollView, TouchableOpacity, Image, ActivityIndicator, Modal, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -278,7 +279,7 @@ export default function DriverDetailsScreen() {
                   <TouchableOpacity
                     onPress={() => {
                       const cleanPhone = driverPhoneNumber.replace(/[^\d+]/g, '');
-                      Linking.openURL(`sms:${cleanPhone}`).catch(err => console.log('Error opening SMS', err));
+                      openMessageOptions(cleanPhone);
                     }}
                     style={{ padding: 4 }}
                   >
