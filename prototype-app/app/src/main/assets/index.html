@@ -203,6 +203,12 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .tool .i.ch{margin-left:auto;color:var(--muted);width:18px}
 
 
+/* pull to refresh */
+#ptr{position:absolute;left:50%;top:78px;width:42px;height:42px;margin-left:-21px;border-radius:50%;background:var(--card);color:var(--ink);box-shadow:var(--float);display:grid;place-items:center;z-index:60;opacity:0;pointer-events:none;transform:translateY(-30px)}
+#ptr .i{width:20px;height:20px}
+#ptr.go{background:var(--lime);color:#000}
+#ptr.spin .i{animation:spin .8s linear infinite}
+.body{overscroll-behavior-y:contain}
 /* live mode */
 #login{position:absolute;inset:0;z-index:90;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
 #login .lg{width:100%;max-width:340px;text-align:center}
@@ -1451,8 +1457,9 @@ async function loadDrivers(){
   if(p.status==='rejected'&&r.status==='rejected')oops(p.reason);
   stamp.drivers=Date.now();renderDrivers();drawHome();
 }
-async function loadTrips(){
-  try{mergeTrips(await GET('/CustomerCare/GetTrips/100'));stamp.trips=Date.now();renderTrips();drawHome();kpis();}catch(e){oops(e);}
+async function loadTrips(withSearch){
+  try{mergeTrips(await GET('/CustomerCare/GetTrips/100'));
+    if(withSearch&&tTab!=='recent'&&tPhone.length===10)mergeTrips(await (tTab==='driver'?GET('/Driver/'+tPhone+'/TripList'):GET('/passenger/'+tPhone+'/TripList/Kerala')));stamp.trips=Date.now();renderTrips();drawHome();kpis();}catch(e){oops(e);}
 }
 async function loadAddons(){
   try{const list=arr(await GET('/Vehicle/AddOn/Pending'));ADDONS.length=0;
@@ -1819,6 +1826,54 @@ OV.show=function(name,opts){
   }catch(e){}
   return r;
 };
+
+
+/* ---------- pull down to refresh ---------- */
+const REFRESH={
+  home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons()]),
+  trips:()=>loadTrips(true),
+  drivers:()=>loadDrivers(),
+  addon:()=>loadAddons(),
+  top:async()=>{await loadTop();renderTop();},
+  city:()=>loadCities(),
+  missed:()=>{stamp.missed=Date.now();return loadMissed();},
+  reports:()=>{Object.keys(cache).forEach(k=>delete cache[k]);stamp.reg=0;return window.drawReport();},
+  dtrips:async()=>{const d=drv(dtId);if(d){delete gotTrips[d.phone];await loadDriverTrips(d.phone);renderDT();}}
+};
+let ptrBusy=false;
+async function doRefresh(){
+  const fn=REFRESH[current];
+  if(window.LIVE&&fn){try{await fn();}catch(e){oops(e);}}
+  else await wait(700);
+}
+(function(){
+  const el=document.createElement('div');el.id='ptr';el.innerHTML=ic('refresh');$('#phone').appendChild(el);
+  const TH=70;let y0=0,x0=0,pull=0,box=null,on=false;
+  const blocked=()=>$('#viewer').classList.contains('on')||$('#fsheet').classList.contains('on')||$('#menu').classList.contains('on');
+  const draw=d=>{el.style.opacity=Math.min(1,d/TH);el.style.transform='translateY('+(Math.min(d,TH*1.4)*0.7-30)+'px) rotate('+(d*3)+'deg)';el.classList.toggle('go',d>=TH);};
+  document.addEventListener('touchstart',e=>{
+    on=false;if(ptrBusy||blocked()||e.touches.length!==1)return;
+    const b=e.target.closest('.screen.on .body');if(!b||b.scrollTop>0)return;
+    box=b;y0=e.touches[0].clientY;x0=e.touches[0].clientX;pull=0;on=true;
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!on)return;const t=e.touches[0],dy=t.clientY-y0,dx=t.clientX-x0;
+    if(dy<=0||Math.abs(dx)>Math.abs(dy)){if(pull===0&&dy<-4)on=false;return;}
+    if(box.scrollTop>0){on=false;return;}
+    pull=dy;if(e.cancelable)e.preventDefault();draw(pull);
+  },{passive:false});
+  const end=async()=>{
+    if(!on)return;on=false;
+    if(pull>=TH&&!ptrBusy){
+      ptrBusy=true;el.classList.add('spin','go');el.style.opacity=1;el.style.transform='translateY(28px)';
+      await doRefresh();
+      el.style.opacity=0;el.style.transform='translateY(-30px)';el.classList.remove('spin','go');ptrBusy=false;
+      toast('Updated');
+    }else{el.style.opacity=0;el.style.transform='translateY(-30px)';}
+    pull=0;
+  };
+  document.addEventListener('touchend',end);document.addEventListener('touchcancel',end);
+})();
 
 /* ---------- boot ---------- */
 async function startLive(){
