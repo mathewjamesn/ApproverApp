@@ -5,6 +5,7 @@
 <style>[hidden]{display:none!important}img{max-width:100%}html{color-scheme:light dark}</style>
 <title>Pikme Approver Prototype</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
 /* Layout: ops-console app in black + light green (same tokens as the Driver app). Black Home header with live numbers, tile sections, black bottom nav, full-screen sub-pages. */
@@ -201,6 +202,27 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .tool span.d{font-size:12px;color:var(--muted)}
 .tool .i.ch{margin-left:auto;color:var(--muted);width:18px}
 
+
+/* live mode */
+#login{position:absolute;inset:0;z-index:90;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;padding:24px;overflow:auto}
+#login .lg{width:100%;max-width:340px;text-align:center}
+#login .lgmark{width:64px;height:64px;border-radius:20px;background:var(--lime);color:#000;display:grid;place-items:center;margin:0 auto 14px}
+#login .lgmark .i{width:30px;height:30px}
+#login h1{margin:0 0 4px;font-family:var(--f-head);font-size:26px}
+#login .muted{color:#B5B5B5;margin:0}
+#login .field{background:#1F1F1F;color:#fff;box-shadow:none;display:flex;gap:8px;align-items:center;padding:0 14px;border-radius:14px;min-height:50px}
+#login .field input{flex:1;min-width:0;background:transparent;border:0;color:#fff;font-size:16px;outline:none;padding:12px 0}
+#login .seg{background:#1F1F1F}#login .seg button{color:#B5B5B5}#login .seg button.on{background:var(--lime);color:#000}
+#login .lgerr{color:#ff8a80;font-size:13px;min-height:20px;margin:10px 0}
+#login .lglink{margin-top:14px;color:var(--lime);font-weight:600;font-size:14px;background:none;border:0}
+#login[hidden]{display:none}
+#login .btn.pri{background:var(--lime);color:#000;min-height:50px;border-radius:14px;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center}#login .btn:disabled{opacity:.6}
+#lmap{position:absolute;inset:0;z-index:1;background:var(--map-land)}
+.lcar{background:none;border:0}.lcar .car{position:relative;margin:0;left:auto;top:auto;transition:none}
+.leaflet-container{font-family:inherit}.leaflet-control-attribution{font-size:10px}
+select.sel{width:100%;background:transparent;border:0;color:var(--ink);font:inherit;font-size:15px;padding:13px 0;outline:none}
+select.sel option{color:#000}
+#trkMap .leaflet-container{position:absolute;inset:0}
 /* map */
 .mapwrap{position:absolute;inset:0;background:var(--map-land);overflow:hidden}
 .mapwrap svg.base{position:absolute;inset:0;width:100%;height:100%}
@@ -376,7 +398,7 @@ a.btn.pri{color:var(--solid-ink)}
     <div class="homehead">
       <div class="hrow">
         <div class="grow"><div class="s" id="greet"></div><h1>Hello, Admin</h1></div>
-        <span class="envb">PRODUCTION</span>
+        <button class="envb" id="envBtn" style="border:0">DEMO</button>
         <button class="ib" id="themeBtn" aria-label="Toggle theme" data-ic="sun"></button>
         <button class="ib" aria-label="Notifications" data-ic="bell"><span class="dotb"></span></button>
       </div>
@@ -632,7 +654,7 @@ DRIVERS.forEach(d=>d.status='Approved');
  ['Shibu Thomas','9400128835','Mini','Tata Tiago','KL 40 CD 1953','Document Pending'],['Jithin Raj','8921554096','Sedan','Maruti Dzire','KL 11 AN 8847','Pending']
 ].forEach((r,i)=>DRIVERS.push({id:'D'+(13+i),name:r[0],phone:r[1],cat:r[2],model:r[3],reg:r[4],status:r[5],x:0,y:0}));
 const DSTATUS={Approved:'var(--ok)',Pending:'var(--info)','Document Pending':'var(--warn)',Rejected:'var(--bad)'};
-const live=()=>DRIVERS.filter(d=>d.status==='Approved');
+const live=()=>DRIVERS.filter(d=>d.status==='Approved'&&!d.stub);
 const PASSENGERS=[['Meera Das','9633100221'],['Karthik S','8089455120'],['Fathima N','9526700831'],['Rahul P','9744890012'],['Anjana R','9847266350'],['Tom Jacob','9961034477']];
 const PLACES=['Lulu Mall, Edappally','Cochin Airport (COK)','Infopark, Kakkanad','Ernakulam South Rly','MG Road Metro','Fort Kochi Beach','Marine Drive','Vyttila Hub','Kaloor Stadium','Aluva Metro','Panampilly Nagar','CSEZ, Kakkanad'];
 const STATUS={PaymentComplete:{t:'Completed',c:'var(--ok)'},CancelledByDriver:{t:'Cancelled by driver',c:'var(--bad)'},CancelledByPassenger:{t:'Cancelled by passenger',c:'var(--warn)'},RideStarted:{t:'Ride started',c:'var(--rental)'},DriverAccepted:{t:'Accepted',c:'var(--info)'},Rejected:{t:'Rejected',c:'var(--muted)'}};
@@ -662,7 +684,7 @@ const MISSED=Array.from({length:12},(_,i)=>{const a=(i*5)%PLACES.length,b=(i*5+3
 const CITIES=[['Kochi',412,286],['Thiruvananthapuram',268,194],['Kozhikode',231,163],['Thrissur',142,97],['Kollam',96,71],['Kannur',64,48],['Palakkad',51,39]];
 const CITY_OF=['Kochi','Kochi','Kochi','Thiruvananthapuram','Kozhikode','Kochi','Thrissur','Kochi','Kozhikode','Kochi','Thiruvananthapuram','Kollam'];
 const PCOORD={'Lulu Mall, Edappally':[10.0261,76.3084],'Cochin Airport (COK)':[10.1518,76.3930],'Infopark, Kakkanad':[10.0108,76.3606],'Ernakulam South Rly':[9.9696,76.2910],'MG Road Metro':[9.9686,76.2870],'Fort Kochi Beach':[9.9658,76.2420],'Marine Drive':[9.9818,76.2757],'Vyttila Hub':[9.9680,76.3198],'Kaloor Stadium':[9.9946,76.3008],'Aluva Metro':[10.1099,76.3487],'Panampilly Nagar':[9.9609,76.2985],'CSEZ, Kakkanad':[10.0160,76.3520]};
-const routeUrl=t=>{const a=PCOORD[t.from],b=PCOORD[t.to];return `https://www.google.com/maps/dir/?api=1&origin=${a[0]},${a[1]}&destination=${b[0]},${b[1]}&travelmode=driving`;};
+let routeUrl=t=>{const a=PCOORD[t.from],b=PCOORD[t.to];return `https://www.google.com/maps/dir/?api=1&origin=${a[0]},${a[1]}&destination=${b[0]},${b[1]}&travelmode=driving`;};
 const ADDONS=[
  {id:'V1',reg:'KL 07 CK 9921',make:'Maruti Suzuki',model:'Swift Dzire',type:'Sedan',cat:'Sedan',colour:'White',ev:false,region:'Kerala',driver:'D1',rating:4.7,ratings:312},
  {id:'V2',reg:'KL 39 AD 4410',make:'Tata',model:'Tiago EV',type:'Hatchback',cat:'Mini',colour:'Blue',ev:true,region:'Kerala',driver:'D2',rating:4.5,ratings:148},
@@ -857,7 +879,7 @@ $('#mapwrap').addEventListener('click',e=>{if(e.target.id==='mapwrap'||e.target.
   function apply(){clamp();layer.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;cars.style.setProperty('--inv',(1/s).toFixed(3));}
   function zoomAt(f,cx,cy){const n=Math.min(3,Math.max(1,s*f));tx=cx-(cx-tx)*(n/s);ty=cy-(cy-ty)*(n/s);s=n;apply();}
   const ctl=e=>e.target.closest('.maptop,.sheet,.maplegend,.mapzoom');
-  wrap.addEventListener('pointerdown',e=>{if(ctl(e))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;pinch=0;});
+  wrap.addEventListener('pointerdown',e=>{if(window.LIVE||ctl(e))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;pinch=0;});
   wrap.addEventListener('pointermove',e=>{
     const p=ptr.get(e.pointerId);if(!p)return;
     if(ptr.size===1){const dx=e.clientX-p.x,dy=e.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;tx+=dx;ty+=dy;p.x=e.clientX;p.y=e.clientY;apply();}
@@ -867,10 +889,10 @@ $('#mapwrap').addEventListener('click',e=>{if(e.target.id==='mapwrap'||e.target.
   const end=e=>{ptr.delete(e.pointerId);pinch=0;};
   wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
   wrap.addEventListener('click',e=>{if(moved){e.stopPropagation();e.preventDefault();moved=false;}},true);
-  wrap.addEventListener('wheel',e=>{e.preventDefault();const r=wrap.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  wrap.addEventListener('wheel',e=>{if(window.LIVE)return;e.preventDefault();const r=wrap.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
   wrap.insertAdjacentHTML('beforeend','<div class="mapzoom"><button aria-label="Zoom in" id="zIn">+</button><button aria-label="Zoom out" id="zOut">−</button></div>');
   const zc=()=>[wrap.clientWidth/2,wrap.clientHeight/2];
-  $('#zIn').onclick=()=>zoomAt(1.3,...zc());$('#zOut').onclick=()=>zoomAt(1/1.3,...zc());
+  $('#zIn').onclick=()=>window.LIVE&&window.lmap?window.lmap.zoomIn():zoomAt(1.3,...zc());$('#zOut').onclick=()=>window.LIVE&&window.lmap?window.lmap.zoomOut():zoomAt(1/1.3,...zc());
   window.addEventListener('resize',apply);
   window.mapResetView=()=>{s=1.4;tx=-(wrap.clientWidth*(s-1))/2;ty=-(wrap.clientHeight*(s-1))/2;apply();};
   setTimeout(window.mapResetView,0);
@@ -1288,4 +1310,536 @@ document.addEventListener('click',e=>{
 });
 
 drawReport();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ============================================================================
+   LIVE API LAYER. Active only inside the Android wrapper (window.AndroidApp.http), after sign-in.
+   In a normal browser the page stays a self-contained demo. All calls go through a native HTTP
+   bridge, so there are no CORS limits. Endpoints are the same ones the GMT Approver app uses.
+   ========================================================================== */
+(function(){
+const NATIVE=!!(window.AndroidApp&&window.AndroidApp.http);
+const ls={g:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},s:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},d:k=>{try{localStorage.removeItem(k);}catch(e){}}};
+const BASES={PRODUCTION:'https://tok-apim-prod.azure-api.net/api',STAGING:'https://tok-apim-stgng.azure-api.net/api'};
+let ENV=ls.g('env')==='STAGING'?'STAGING':'PRODUCTION';
+window.LIVE=false;const OV={};
+function install(){Object.assign(window,OV);routeUrl=OV.routeUrl;}
+const CITY_NAMES=['Ernakulam','Palakkad','Trivandrum','Kollam','Kottayam','Thrissur','Calicut','Kannur','Idukki','Pathanamthitta','Alappuzha','Wayanad','Kasargod','Malappuram'];
+
+/* ---------- native HTTP ---------- */
+const waits={};let rid=0;
+window.__http=(id,st,body)=>{const f=waits[id];if(f){delete waits[id];f(st,body);}};
+const parse=b=>{try{return JSON.parse(b);}catch(e){return b;}};
+const errMsg=(st,j)=>{if(j&&typeof j==='object'){const m=j.message||(typeof j.error==='string'?j.error:j.error&&j.error.message);if(m)return String(m);}
+  return st?'Request failed ('+st+')':(typeof j==='string'&&j?j:'No connection');};
+const settle=(res,rej)=>(st,b)=>{const j=parse(b);if(st>=200&&st<300)res(j);else{if(st===401&&window.LIVE)expired();rej({status:st,data:j,message:errMsg(st,j)});}};
+const api=(method,path,body)=>new Promise((res,rej)=>{const id=++rid;waits[id]=settle(res,rej);
+  window.AndroidApp.http(id,method,BASES[ENV]+path,body==null?'':JSON.stringify(body),ls.g('token')||'');});
+const GET=p=>api('GET',p),POST=(p,b)=>api('POST',p,b==null?{}:b);
+
+/* ---------- small helpers ---------- */
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const last10=p=>String(p||'').replace(/\D/g,'').slice(-10);
+const num=v=>{const n=parseFloat(v);return Number.isFinite(n)?n:0;};
+const arr=d=>Array.isArray(d)?d:d&&Array.isArray(d.data)?d.data:d&&Array.isArray(d.drivers)?d.drivers:d?[d]:[];
+const safeUrl=u=>/^https?:\/\//i.test(String(u||''))?esc(u):'';
+const iso=v=>v?String(v).slice(0,10):'';
+CATS.Auto=CATS.Auto||{c:'var(--auto)'};
+const catOf=v=>{const s=String(v||'').trim();const k=Object.keys(CATS).find(x=>x.toLowerCase()===s.toLowerCase());if(k)return k;
+  const l=s.toLowerCase();if(/auto|rick/.test(l))return 'Auto';if(/suv|muv|innova|ertiga|xuv|carens|crysta/.test(l))return 'SUV';
+  if(/sedan|dzire|aura|amaze|etios|ciaz|verna|city/.test(l))return 'Sedan';return 'Mini';};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+let lastErr=0;const oops=e=>{if(Date.now()-lastErr>4000){lastErr=Date.now();toast((e&&e.message)||'Something went wrong');}};
+
+/* ---------- sign-in ---------- */
+function expired(){window.LIVE=false;ls.d('token');showLogin('Your session expired. Please sign in again.');}
+function logout(){ls.d('token');ls.d('userPhone');location.reload();}
+let loginEl=null,loginPhone='';
+function showLogin(msg){
+  if(!loginEl){loginEl=document.createElement('div');loginEl.id='login';$('#phone').appendChild(loginEl);}
+  loginEl.hidden=false;loginStep1(msg);
+}
+function loginStep1(msg){
+  loginEl.innerHTML=`<div class="lg"><div class="lgmark">${ic('check',30)}</div><h1>Approver</h1><p class="muted">Sign in with your customer-care number</p>
+   <div class="seg" id="lgEnv" style="margin:18px 0 12px"><button data-e="PRODUCTION" class="${ENV==='PRODUCTION'?'on':''}">Production</button><button data-e="STAGING" class="${ENV==='STAGING'?'on':''}">Staging</button></div>
+   <div class="field"><span>+91</span><input id="lgPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" autocomplete="tel"></div>
+   <div class="lgerr" id="lgErr">${esc(msg||'')}</div>
+   <button class="btn pri" id="lgGo" style="width:100%">Send OTP</button>
+   <button class="lglink" id="lgDemo">Explore with sample data</button></div>`;
+  $('#lgEnv').onclick=e=>{const b=e.target.closest('button');if(!b)return;ENV=b.dataset.e;ls.s('env',ENV);$$('#lgEnv button').forEach(x=>x.classList.toggle('on',x===b));};
+  $('#lgPhone').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
+  $('#lgDemo').onclick=()=>{loginEl.hidden=true;};
+  $('#lgGo').onclick=async()=>{
+    const p=$('#lgPhone').value.trim(),er=$('#lgErr');
+    if(p.length!==10){er.textContent='Enter a valid 10-digit mobile number.';return;}
+    const b=$('#lgGo');b.disabled=true;b.textContent='Sending…';er.textContent='';
+    try{await POST('/Auth/CustomerCareUserSignUp',{mobileNumber:p,countryCode:'91'});loginPhone=p;loginStep2();}
+    catch(e){er.textContent=e.message;b.disabled=false;b.textContent='Send OTP';}
+  };
+}
+function loginStep2(){
+  loginEl.innerHTML=`<div class="lg"><div class="lgmark">${ic('key',28)}</div><h1>Enter OTP</h1><p class="muted">Sent to +91 ${loginPhone}</p>
+   <div class="field" style="margin-top:18px"><input id="lgOtp" inputmode="numeric" maxlength="6" placeholder="OTP" style="letter-spacing:.3em;font-size:20px;text-align:center"></div>
+   <div class="lgerr" id="lgErr"></div>
+   <button class="btn pri" id="lgGo" style="width:100%">Verify and sign in</button>
+   <button class="lglink" id="lgBack">Use a different number</button></div>`;
+  $('#lgOtp').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
+  $('#lgBack').onclick=()=>loginStep1();
+  $('#lgGo').onclick=async()=>{
+    const otp=$('#lgOtp').value.trim(),er=$('#lgErr');
+    if(otp.length<4){er.textContent='Enter the OTP you received.';return;}
+    const b=$('#lgGo');b.disabled=true;b.textContent='Verifying…';er.textContent='';
+    try{
+      let dev=ls.g('dev');if(!dev){dev='approver-proto-'+Math.random().toString(36).slice(2)+Date.now().toString(36);ls.s('dev',dev);}
+      const res=await POST('/Auth/CustomerCareUserSignIn',{MobileNumber:loginPhone,DevicePlatform:'fcmv1',CountryCode:'91',DevicePnsHandle:dev,Otp:otp,PartitionKey:'Kerala'});
+      const h=((res&&res.headers)||[]).find(x=>x.key==='Authorization');
+      const tok=h&&h.value&&h.value[0]?String(h.value[0]).replace('Bearer ',''):'';
+      if(!tok)throw {message:(res&&res.message)||'Sign-in did not return a token. Check the OTP and try again.'};
+      ls.s('token',tok);ls.s('userPhone',loginPhone);location.reload();
+    }catch(e){er.textContent=e.message;b.disabled=false;b.textContent='Verify and sign in';}
+  };
+}
+
+/* ---------- data mapping ---------- */
+const statusOf=(r,def)=>{const v=String(r.verificationStatus||r.status||'').toLowerCase();
+  if(v.includes('reject'))return 'Rejected';if(v.includes('document')||v.includes('incomplete'))return 'Document Pending';
+  if(/^(approved|verified)$/.test(v.trim()))return 'Approved';return def||'Pending';};
+function mapDriver(r,def){
+  const phone=last10(r.mobileNumber||r.phone||r.phoneNumber);
+  const name=esc(((r.firstName||'')+' '+(r.lastName||'')).trim()||r.driverName||r.name||phone||'Driver');
+  return {id:esc(r.id||('M'+phone)),name,phone,cat:catOf(r.associatedVehicleType||r.vehicleCategory||r.vehicleType||r.category),
+    model:esc(r.vehicleModel||r.vehicleName||r.associatedVehicleType||'—'),reg:esc(r.registrationNumber||r.plateNumber||'—'),
+    status:statusOf(r,def),x:0,y:0,pk:r.partitionKey||'Kerala'};
+}
+function upsert(d){const i=DRIVERS.findIndex(x=>x.phone&&x.phone===d.phone);if(i>=0){const o=DRIVERS[i],oldId=o.id;if(oldId!==d.id)TRIPS.forEach(t=>{if(t.driver===oldId)t.driver=d.id;});Object.assign(o,d,{lat:o.lat,lon:o.lon,hrs:o.hrs,today:o.today,city:o.city,stub:d.stub&&o.stub});return o;}DRIVERS.push(d);return d;}
+function ensureDriver(phone,name,cat){
+  phone=last10(phone);let d=DRIVERS.find(x=>x.phone===phone);
+  if(!d){d={id:'S'+phone,name:esc(name||phone||'Driver'),phone,cat:catOf(cat),model:'—',reg:'—',status:'Approved',stub:true,x:0,y:0,pk:'Kerala'};DRIVERS.push(d);}
+  return d;
+}
+function tripKind(r){
+  const raw=String(r.tripType??r.rideType??r.bookingType??r.tripCategory??r.rideCategory??'').toLowerCase();
+  if(raw.includes('rental')||r.isRental===true||r.isRentalTrip===true)return 'Rental';
+  if(raw.includes('reserv')||raw.includes('schedul')||r.isReservation===true||r.isScheduled===true||r.isScheduledTrip===true||r.isReservationTrip===true)return 'Reservation';
+  return 'Normal';
+}
+function mapTrip(r){
+  let st=String(r.tripStatus||'').trim();
+  if(!st){const c=new Date(r.createdOn||r.tripStartDate||0).getTime();if(c&&Date.now()-c<=864e5)st='DriverAccepted';}
+  st=st||'Unknown';
+  if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
+  const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
+  let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
+  const fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):0,est=num(r.initialFareAmount)||num(r.estimatedFareAmount)||fare;
+  const type=tripKind(r);
+  return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
+    driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
+    to:esc(type==='Rental'&&!r.toLocation?'Hourly package':(r.toLocation||'—')),km:+(num(r.finalDistanceInKilometers)||num(r.distanceInKilometers)).toFixed(1),
+    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r};
+}
+function mergeTrips(list){arr(list).forEach(r=>{const t=mapTrip(r);const i=TRIPS.findIndex(x=>x.id===t.id);if(i>=0)TRIPS[i]=t;else TRIPS.push(t);});TRIPS.sort((a,b)=>b.date-a.date);}
+
+/* ---------- loaders ---------- */
+const stamp={};const fresh=(k,ms)=>stamp[k]&&Date.now()-stamp[k]<ms;
+async function loadDrivers(){
+  const [p,r]=await Promise.allSettled([GET('/CustomerCare/GetDrivers/NotVerified/125'),GET('/CustomerCare/GetDrivers/Rejected')]);
+  const keep=DRIVERS.filter(d=>d.status==='Approved'||d.status==='Rejected'&&false);
+  DRIVERS.length=0;DRIVERS.push(...keep);
+  if(p.status==='fulfilled')arr(p.value).forEach(x=>upsert(mapDriver(x,'Pending')));
+  if(r.status==='fulfilled')arr(r.value).forEach(x=>upsert(mapDriver(x,'Rejected')));
+  if(p.status==='rejected'&&r.status==='rejected')oops(p.reason);
+  stamp.drivers=Date.now();renderDrivers();drawHome();
+}
+async function loadTrips(){
+  try{mergeTrips(await GET('/CustomerCare/GetTrips/100'));stamp.trips=Date.now();renderTrips();drawHome();kpis();}catch(e){oops(e);}
+}
+async function loadAddons(){
+  try{const list=arr(await GET('/Vehicle/AddOn/Pending'));ADDONS.length=0;
+    list.forEach(r=>ADDONS.push({id:esc(r.id),pk:r.partitionKey||'Kerala',reg:esc(r.registrationNumber||'—'),make:esc(r.vehicleMake||'—'),model:esc(r.vehicleModel||'—'),
+      type:esc(r.vehicleType||'—'),cat:catOf(r.category||r.vehicleType),colour:esc(r.colour||'—'),ev:!!r.isElectricVehicle,region:esc(r.partitionKey||'—'),drvId:r.driverIdentifier||'',rcUrl:safeUrl(r.rcUrl)}));
+    stamp.addons=Date.now();drawAddons();drawHome();}catch(e){oops(e);}
+}
+async function loadTop(){
+  try{
+    const period=new Date().toISOString().slice(0,7);
+    const list=arr(await GET('/Reports/TopOnlineDrivers?period='+period));
+    DRIVERS.forEach(d=>{if(d.top){d.stub=true;d.top=false;}});
+    list.forEach((r,i)=>{
+      const phone=last10(r.mobileNumber||r.phone);if(!phone)return;
+      const hrs=r.onlineHours!=null?num(r.onlineHours):r.onlineDurationMinutes!=null?num(r.onlineDurationMinutes)/60:num(r.onlineTime);
+      const d=upsert({id:esc(r.id||('T'+phone)),name:esc(r.driverName||r.name||phone),phone,cat:catOf(r.vehicleCategory||r.vehicleType||r.category),model:esc(r.vehicleModel||r.vehicleType||'—'),
+        reg:esc(r.registrationNumber||'—'),status:'Approved',x:0,y:0,pk:r.partitionKey||'Kerala'});
+      d.stub=false;d.top=true;d.city=esc(r.city||r.partitionKey||'—');d.hrs=+hrs.toFixed(1);d.today=num(r.tripsCount||r.trips);
+    });
+    stamp.top=Date.now();
+  }catch(e){oops(e);}
+}
+const pos=p=>{if(!p||typeof p!=='object')return null;for(const c of [p.location,p.Location,p,p.data,p.data&&p.data.location]){if(!c||typeof c!=='object')continue;
+  const la=num(c.latitude??c.Latitude??c.lat??c.Lat),lo=num(c.longitude??c.Longitude??c.lng??c.Lng??c.lon);if(la&&lo)return {lat:la,lon:lo,status:p.status||c.status};}return null;};
+async function fetchPos(phone){return pos(await GET('/CustomerCare/'+last10(phone)+'/LocationDetails'));}
+async function loadLocations(){
+  const ds=live().slice(0,30);
+  await Promise.allSettled(ds.map(async d=>{try{const p=await fetchPos(d.phone);if(p){d.lat=p.lat;d.lon=p.lon;d.offline=String(p.status||'').toLowerCase()==='offline';}else d.lat=null;}catch(e){d.lat=null;}}));
+}
+async function loadCities(){
+  try{
+    const rows=await Promise.all(CITY_NAMES.map(async c=>{
+      const [a,b]=await Promise.allSettled([GET('/Reports/GetDriversByAvailabilityStatus/'+encodeURIComponent(c)+'/Car/online'),GET('/Reports/GetDriversByAvailabilityStatus/'+encodeURIComponent(c)+'/Auto/online')]);
+      const n=x=>x.status==='fulfilled'?num(x.value&&x.value.totalDrivers):0;return [c,n(a),n(b)];}));
+    CITIES.length=0;rows.sort((x,y)=>(y[1]+y[2])-(x[1]+x[2])).forEach(r=>CITIES.push(r));
+    stamp.cities=Date.now();drawCityBody();kpis();
+  }catch(e){oops(e);}
+}
+function drawCityBody(){
+  const cars=CITIES.reduce((a,c)=>a+c[1],0),autos=CITIES.reduce((a,c)=>a+c[2],0),mx=Math.max(1,...CITIES.map(c=>c[1]+c[2]));
+  $('#cityBody').innerHTML='<div class="card">'+`<div class="total"><span class="muted">Online now</span><b>${(cars+autos).toLocaleString('en-IN')}</b></div>
+   <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>`+
+   CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
+}
+async function loadMissed(){
+  const el=$('#missedBody');
+  try{
+    const list=arr(await GET('/Reports/GetMissedRideRequests/1'));MISSED.length=0;
+    list.forEach(r=>{let d=new Date(r.requestedOn||r.createdOn);if(isNaN(d))d=new Date();
+      MISSED.push({from:esc(r.fromLocation||'—'),to:esc(r.toLocation||'—'),date:d,type:tripKind(r),reason:esc(r.reason||'No driver available'),notified:num(r.driversNotified),cat:catOf(r.vehicleCategory),pax:esc(r.passengerName||'Passenger')});});
+    el.innerHTML=MISSED.length?missedLive():empty('check','No missed requests in the last day');
+  }catch(e){MISSED.length=0;el.innerHTML=empty('alert','Missed requests are not connected to a backend report yet.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
+  kpis();
+}
+function missedLive(){
+  const reasons=[...new Set(MISSED.map(m=>m.reason))],col=['var(--bad)','var(--warn)','var(--info)','var(--muted)'];
+  const rows=reasons.map((r,i)=>[r,MISSED.filter(m=>m.reason===r).length,col[i%4]]);
+  return `<div class="card"><h2 class="h2">Missed requests</h2><div class="total" style="margin-top:10px"><span class="muted">Last 24 hours</span><b>${MISSED.length}</b></div>
+   <div class="sbarx">${rows.map(r=>`<i style="width:${r[1]/MISSED.length*100}%;background:${r[2]}"></i>`).join('')}</div>
+   ${rows.map(r=>`<div class="stat"><span class="l"><i class="dot" style="background:${r[2]}"></i>${r[0]}</span><span><b class="num">${r[1]}</b></span></div>`).join('')}</div>
+   <div class="sech"><h2 class="h2">Recent missed requests</h2></div><div class="card" style="padding-top:4px;padding-bottom:4px">${MISSED.map(m=>`<div class="mrow"><div class="trow"><span class="reason">${m.reason}</span>${typeTag(m.type)}</div>
+   <div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${m.from}</div><div>${m.to}</div></div></div><div class="tfoot"><span>${fmtDate(m.date)} · ${m.pax}</span><span>${m.cat} · ${m.notified} notified</span></div></div>`).join('')}</div>`;
+}
+function kpis(){
+  const on=CITIES.reduce((a,c)=>a+c[1]+c[2],0);
+  $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN'):'–';
+  $('#kMissed').textContent=stamp.missed||MISSED.length?MISSED.length:'–';
+  const kt=$('.kstrip .kc[data-go="trips"] b');if(kt){const s=new Date();s.setHours(0,0,0,0);kt.textContent=TRIPS.length?TRIPS.filter(t=>t.date>=s).length:'–';}
+}
+
+/* ---------- reports ---------- */
+let repDays=5;const cache={};
+async function loadRegistration(){
+  try{const rows=arr(await GET('/Reports/GetDriverRegistrationSummary'));const s=k=>rows.reduce((a,r)=>a+num(r[k]),0);
+    HOME.driver={title:'Driver registration',labels:['Approved drivers','Pending verification','Document pending','Rejected'],v:[s('approved'),s('pendingVerification'),s('documentPending'),s('rejected')],tot:Math.max(1,s('totalRegistered'))};
+    stamp.reg=Date.now();}catch(e){oops(e);}
+}
+async function completedLive(days){
+  if(!cache[days]){try{const rows=arr(await GET('/Reports/GetRecentlyCompletedTrips/'+days));
+    cache[days]=rows.map(it=>{const raw=it.createdDate||it.date||it.day||it.createdOn||it.tripDate||it.dateString||it.id||'';let lbl=String(raw).slice(0,10).split('-');lbl=lbl.length===3&&lbl[0].length===4?lbl[2]+'/'+lbl[1]:String(raw).slice(0,6);
+      return [lbl,Math.round(num(it.trips??it.count??it.totalTrips??it.total??it.completedTrips))];});}catch(e){cache[days]=[];oops(e);}}
+  const bars=cache[days],total=bars.reduce((a,b)=>a+b[1],0);
+  const recent=TRIPS.filter(t=>t.status==='PaymentComplete').slice(0,4);
+  return `<div class="sech" style="margin-top:20px"><h2 class="h2">Completed trips report</h2></div><div class="card">
+   <div class="seg" id="crSeg">${[5,10,30].map(n=>`<button data-p="${n}" class="${n===days?'on':''}">${n} days</button>`).join('')}</div>
+   <div class="kpis"><div class="kpi"><small>Completed trips</small><b>${total.toLocaleString('en-IN')}</b></div><div class="kpi"><small>Daily average</small><b>${bars.length?Math.round(total/bars.length).toLocaleString('en-IN'):0}</b></div></div>
+   <div class="mini-h" style="margin-top:4px">Trips completed per day</div>${bars.length?barChart(bars):empty('chart','No data for this period')}</div>
+   <div class="sech"><h2 class="h2">Latest completed</h2><a class="link" id="crAll">View all</a></div>${recent.map(t=>tripCard(t)).join('')}`;
+}
+OV.drawReport=async function(){
+  if(!window.LIVE)return;
+  const el=$('#reportBody');
+  if(repTab==='passenger'){el.innerHTML=empty('users','The passenger summary is not available in this app yet.');return;}
+  if(repTab==='driver'){if(!fresh('reg',60000))await loadRegistration();el.innerHTML=summaryCard('driver');return;}
+  el.innerHTML=empty('chart','Loading report…');
+  const html=await completedLive(repDays);if(repTab!=='trips')return;el.innerHTML=html;
+  $('#crSeg').onclick=e=>{const b=e.target.closest('[data-p]');if(b){repDays=+b.dataset.p;window.drawReport();}};
+  $('#crAll').onclick=()=>{tTab='recent';tStatus='PaymentComplete';tType='all';resetTripTabs();stack.length=0;show('trips');drawTrips();};
+};
+OV.setReport=function(k){repTab=k;$$('#repSeg button').forEach(x=>x.classList.toggle('on',x.dataset.c===k));window.drawReport();};
+
+/* ---------- Leaflet maps ---------- */
+function dark(){const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);}
+function mkMap(el){
+  if(typeof L==='undefined'){el.innerHTML='<div class="empty">Map tiles need an internet connection.</div>';return null;}
+  const m=L.map(el,{zoomControl:false,attributionControl:false,minZoom:5}).setView([10.0,76.3],9);
+  L.tileLayer(dark()?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(m);
+  L.control.attribution({prefix:false,position:'bottomleft'}).addAttribution('© OpenStreetMap · © CARTO').addTo(m);
+  return m;
+}
+let lcars=[],fitted=false;
+function lmapInit(){
+  if(window.lmap)return;
+  const wrap=$('#mapwrap'),el=document.createElement('div');el.id='lmap';wrap.insertBefore(el,wrap.firstChild);$('#maplayer').style.display='none';
+  window.lmap=mkMap(el);if(window.lmap)window.lmap.on('click',()=>closeSheet());
+}
+const visCars=()=>live().filter(d=>d.lat!=null&&!d.offline&&(mapCat==='All'||d.cat===mapCat));
+OV.catFilters=function(){
+  const base=live().filter(d=>d.lat!=null&&!d.offline),items=['All',...Object.keys(CATS)];
+  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?base.length:base.filter(d=>d.cat===c).length}</span></button>`).join('');
+};
+OV.drawCars=function(){
+  lmapInit();const m=window.lmap;if(!m)return;
+  lcars.forEach(x=>m.removeLayer(x));lcars=[];
+  const vis=visCars();$('#liveCount').textContent=vis.length+' online';
+  vis.forEach(d=>{
+    const ic2=L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="car ${selected===d.id?'sel':''}" id="car-${d.id}" style="--c:${CATS[d.cat].c}"><button aria-label="${d.name}, ${d.cat}">${ic('car',22)}</button></div>`});
+    lcars.push(L.marker([d.lat,d.lon],{icon:ic2}).on('click',()=>openSheet(d.id)).addTo(m));
+  });
+  if(!fitted&&vis.length){fitted=true;m.fitBounds(L.latLngBounds(vis.map(d=>[d.lat,d.lon])),{padding:[60,60],maxZoom:14});}
+};
+OV.startMap=function(){
+  lmapInit();catFilters();drawCars();clearInterval(mapTimer);
+  setTimeout(()=>window.lmap&&window.lmap.invalidateSize(),60);
+  const tick=async()=>{await loadLocations();catFilters();drawCars();};
+  tick();mapTimer=setInterval(()=>{if(current==='map')tick();},15000);
+};
+
+/* ---------- track driver ---------- */
+const _closeTrk=()=>{if(trk&&trk.map){try{trk.map.remove();}catch(e){}}};
+OV.openTrack=function(id){
+  const t=TRIPS.find(x=>x.id===id),d=drv(t.driver),r=t.raw||{};
+  const fa=r.fromAddress||{},pg=(r.passengerFromAddress&&r.passengerFromAddress.geoLocation)||{};
+  const pla=num(fa.latitude||pg.latitude),plo=num(fa.longitude||pg.longitude);
+  _closeTrk();
+  trk={live:true,t,d,P:pla&&plo?{lat:pla,lon:plo}:null,D:null,left:TRK_SECONDS,spin:false,updated:new Date(),fit:false};
+  $('#trkName').textContent=d.name;$('#trkMap').innerHTML='';show('track');
+  trk.map=mkMap($('#trkMap'));trk.layers=[];
+  trkRefresh(true);
+  clearInterval(trkTimer);
+  trkTimer=setInterval(()=>{if(current!=='track'){clearInterval(trkTimer);return;}trk.left--;if(trk.left<=0)trkRefresh(false);else updateTimers();},1000);
+};
+OV.trkRefresh=async function(manual){
+  if(!trk||!trk.live||trk.spin)return;trk.spin=true;trk.left=TRK_SECONDS;drawTrack();
+  try{const p=await fetchPos(trk.d.phone);if(p){trk.D={lat:p.lat,lon:p.lon};trk.dstat=p.status;}trk.updated=new Date();}catch(e){if(manual)oops(e);}
+  trk.spin=false;trk.left=TRK_SECONDS;drawTrack();
+};
+OV.drawTrack=function(){
+  if(!trk||!trk.live)return;
+  const {D,P,d,t}=trk,dist=D&&P?haversine(D,P):null,dur=dist==null?null:dist/7;
+  const m=trk.map;
+  if(m){trk.layers.forEach(x=>m.removeLayer(x));trk.layers=[];
+    const pts=[];
+    if(P){trk.layers.push(L.marker([P.lat,P.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin pu" style="position:relative;left:auto;top:auto;margin:0">${ic('users',20)}</div>`})}).addTo(m));pts.push([P.lat,P.lon]);}
+    if(D){trk.layers.push(L.marker([D.lat,D.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin drv" style="position:relative;left:auto;top:auto;margin:0">${ic('car',22)}</div>`})}).addTo(m));pts.push([D.lat,D.lon]);}
+    if(D&&P)trk.layers.push(L.polyline([[D.lat,D.lon],[P.lat,P.lon]],{color:'#0E7C4A',weight:4,dashArray:'8 8'}).addTo(m));
+    if(pts.length&&!trk.fit){trk.fit=true;setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:16}):m.setView(pts[0],15);},80);}
+  }
+  const url=D&&P?`https://www.google.com/maps/dir/?api=1&origin=${D.lat.toFixed(6)},${D.lon.toFixed(6)}&destination=${P.lat.toFixed(6)},${P.lon.toFixed(6)}&travelmode=driving`
+    :P?`https://www.google.com/maps/search/?api=1&query=${P.lat},${P.lon}`:'';
+  const na='<span class="muted">Unavailable</span>';
+  $('#trkCard').innerHTML=`<div class="trow"><span style="display:flex;align-items:center;gap:8px;font-weight:700"><span class="pulse" style="background:var(--ok)"></span>Live tracking <span class="muted" style="font-weight:500">· updates in <b id="trkCd" style="color:var(--ink)">${trk.left}s</b></span></span>${badge(D?'Located':'No location',D?'var(--ok)':'var(--warn)')}</div>
+   <div class="drow" style="margin-top:12px"><div class="avatar">${initials(d.name)}</div><div style="flex:1;min-width:0"><div class="dname" style="font-size:16px">${d.name}</div><div class="muted" style="font-size:13px">${fmtPhone(d.phone)} · ${d.cat}</div></div>${contactBtns(d.phone,d.name)}</div>
+   <div class="tl" style="margin:14px 0 2px"><div class="p"><i class="e"></i></div><div class="t"><div style="white-space:normal"><b>Pickup location</b><br><span class="muted">${t.from}</span></div></div></div>
+   <div class="eta"><div><small>Distance to location</small><b>${dist==null?'—':fmtDist(dist)}</b></div><div><small>Time to reach</small><b>${dur==null?'—':fmtDur(dur)}</b></div></div>
+   <div class="row" style="border:0;padding:4px 0"><span class="l">Driver coords</span><span class="r num">${D?D.lat.toFixed(5)+', '+D.lon.toFixed(5):'—'}</span></div>
+   <div class="row" style="padding:8px 0 0"><span class="l">Last updated</span><span class="r">${trk.updated.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span></div>
+   <div class="tactions"><button class="btn" id="trkRefBtn">${trk.spin?`<span class="spin" style="display:inline-flex">${ic('refresh',18)}</span>Updating…`:`${ic('refresh',18)}<span id="trkRefLbl">Refresh (${trk.left}s)</span>`}</button>
+   ${url?`<a class="btn pri" href="${url}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a>`:''}</div>`;
+  $('#trkRefBtn').onclick=()=>trkRefresh(true);
+  $('#trkTimer').textContent='⏱ '+trk.left+'s';
+};
+
+/* ---------- trip route, driver trips, menu counts ---------- */
+OV.routeUrl=t=>{const r=t.raw||{},f=r.fromAddress||{},o=r.toAddress||{};
+  const a=f.latitude&&f.longitude?f.latitude+','+f.longitude:encodeURIComponent(r.fromLocation||t.from),b=o.latitude&&o.longitude?o.latitude+','+o.longitude:encodeURIComponent(r.toLocation||t.to);
+  return `https://www.google.com/maps/dir/?api=1&origin=${a}&destination=${b}&travelmode=driving`;};
+const gotTrips={};
+const loadDriverTrips=async phone=>{if(gotTrips[phone])return;mergeTrips(await GET('/Driver/'+phone+'/TripList'));gotTrips[phone]=1;};
+const _odt=openDriverTrips;
+OV.openDriverTrips=function(id,f,from){_odt(id,f,from);if(!window.LIVE)return;const d=drv(id);
+  loadDriverTrips(d.phone).then(()=>{if(dtId===id)renderDT();}).catch(oops);};
+const _om=openMenu;
+OV.openMenu=function(a,id,f){if(!window.LIVE||gotTrips[drv(id).phone])return _om(a,id,f);
+  loadDriverTrips(drv(id).phone).catch(()=>{}).then(()=>_om(a,id,f));};
+
+/* ---------- verification ---------- */
+const _xp=xpChip;OV.xpChip=s=>s?_xp(s):'';
+const _ov=openVerify;
+const cm=v=>{const s=String(v||'').trim();if(!s)return {s:'PENDING',r:''};if(s.toUpperCase()==='APPROVED')return {s:'APPROVED',r:''};return {s:'REJECTED',r:esc(s)};};
+OV.openVerify=async function(id){
+  if(!window.LIVE)return _ov(id);
+  vId=id;const d=drv(id);vEdit={license:false,vehicle:false};
+  $('#verTitle').textContent=d.name;$('#verSub').textContent='Driver verification';$('#verBody').innerHTML=empty('file','Loading documents…');$('#verBar').innerHTML='';show('verify');
+  try{
+    const [det,docs]=await Promise.all([GET('/Driver/Get/'+d.id+'/'+d.pk),GET('/CustomerCare/DriverDocuments/'+d.id+'/'+d.pk).catch(()=>({}))]);
+    let veh={};if(det&&det.currentAssociatedVehicleIdentifier){try{veh=await GET('/Vehicle/Get/'+det.currentAssociatedVehicleIdentifier+'/'+d.pk);}catch(e){}}
+    d.raw=det||{};
+    const url={profile:safeUrl(docs&&docs.profilePhoto),license:safeUrl(docs&&docs.driverLicense),vehicle:safeUrl(docs&&docs.vehicleRegistration)};
+    d.img={};d.pend={};const miss=[];['profile','license','vehicle'].forEach(k=>{if(url[k])d.img[k]=url[k];else miss.push(k);});
+    d.doc={lic:esc(det.licenseNumber||''),dob:'',licExp:iso(det.licenseExpiryDate),insExp:iso(det.insuranceValidTillDate),permExp:iso(det.vehiclePermitValidTillDate),
+      plate:esc(veh.plateNumber||veh.registrationNumber||veh.registrationNo||det.plateNumber||''),vName:esc(veh.vehicleModel||det.vehicleName||''),vMake:esc(veh.vehicleMake||veh.make||det.vehicleMake||''),
+      vType:esc(veh.vehicleType||det.associatedVehicleType||''),miss};
+    d.rv={profile:cm(det.profileImageComments),license:cm(det.driverLicenseComments),vehicle:cm(det.vehicleComments)};
+    if(current==='verify'&&vId===id){renderVerify();$('#verBody').scrollTop=0;}
+  }catch(e){$('#verBody').innerHTML=empty('alert','Could not load this driver. '+esc(e.message));}
+};
+OV.submitVerify=async function(){
+  if(!window.LIVE){return;}
+  const d=drv(vId),rv=d.rv,x=d.doc,raw=d.raw||{};
+  if(SECT.some(([k])=>rv[k].s==='PENDING'))return fsOpen({type:'error',title:'Incomplete',desc:'Please approve or reject all sections before submitting.'});
+  if(SECT.some(([k])=>rv[k].s==='REJECTED'&&!rv[k].r))return fsOpen({type:'error',title:'Missing reason',desc:'Please select a rejection reason for all rejected sections.'});
+  const ok=SECT.every(([k])=>rv[k].s==='APPROVED');
+  const btn=$('#verSubmit');if(btn){btn.disabled=true;btn.textContent='Submitting…';}
+  const toIso=v=>v?new Date(v).toISOString():undefined;
+  const payload=Object.assign({},raw,{licenseNumber:x.lic||raw.licenseNumber,licenseExpiryDate:toIso(x.licExp)||raw.licenseExpiryDate,insuranceValidTillDate:toIso(x.insExp)||raw.insuranceValidTillDate,
+    vehiclePermitValidTillDate:toIso(x.permExp)||raw.vehiclePermitValidTillDate,registrationNumber:x.plate||raw.plateNumber,vehicleName:x.vName||raw.vehicleName,vehicleMake:x.vMake||raw.vehicleMake,
+    vehicleType:x.vType||raw.associatedVehicleType,profileImageComments:rv.profile.s==='APPROVED'?'Approved':rv.profile.r,driverLicenseComments:rv.license.s==='APPROVED'?'Approved':rv.license.r,
+    vehicleComments:rv.vehicle.s==='APPROVED'?'Approved':rv.vehicle.r,verificationStatus:ok?'Approved':'Rejected',approvedBy:ls.g('userPhone')||''});
+  try{
+    const res=await POST('/Driver/Save/true/'+(raw.partitionKey||d.pk),payload);
+    if(res&&res.status==='Success'&&res.statusCode==200){
+      d.status=ok?'Approved':'Rejected';if(ok)d.stub=true;
+      fsOpen({type:'success',title:'Success',desc:ok?`${d.name} is approved and can now go online.`:'Driver verification status submitted successfully! The driver has been rejected.',btn:'Done',onOk:()=>{renderDrivers();drawHome();back();loadDrivers();}});
+    }else{fsOpen({type:'error',title:(res&&res.status)||'Error',desc:(res&&res.message)||'Failed to save verification. Please try again.'});renderVerify();}
+  }catch(e){fsOpen({type:'error',title:'Error',desc:e.message});renderVerify();}
+};
+function shrink(dataUrl,max){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>{const s=Math.min(1,max/Math.max(im.width,im.height)),c=document.createElement('canvas');
+  c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext('2d').drawImage(im,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',0.82).split(',')[1]);};im.onerror=rej;im.src=dataUrl;});}
+document.addEventListener('click',e=>{
+  if(!window.LIVE)return;
+  const up=e.target.closest('#verBody [data-upload]');
+  if(up){e.stopImmediatePropagation();e.preventDefault();const k=up.dataset.upload,d=drv(vId);
+    fsOpen({type:'confirm',title:'Confirm upload',desc:`Are you sure you want to upload this new ${k} image?`,btn:'Upload',cancel:'Cancel',onOk:async()=>{
+      const type={profile:'ProfilePhoto',license:'DriverLicense',vehicle:'VehicleRegistration'}[k];toast('Uploading…');
+      try{const b64=await shrink(d.pend[k],1600);const id=++rid;
+        await new Promise((res,rej)=>{waits[id]=settle(res,rej);window.AndroidApp.upload(id,BASES[ENV]+'/CustomerCare/UploadDriverDocuments/'+d.phone+'/'+type,'fileToPost','image/'+type+'.jpg','image/jpeg',b64,ls.g('token')||'');});
+        d.img[k]=d.pend[k];delete d.pend[k];d.doc.miss=d.doc.miss.filter(m=>m!==k);renderVerify();toast('Image uploaded');
+      }catch(err){oops(err);}}});
+    return;}
+  const av=e.target.closest('#adBody [data-adview]');
+  if(av){e.stopImmediatePropagation();const v=ADDONS.find(a=>a.id===adId);if(v&&v.rcUrl)openViewer(`<img src="${v.rcUrl}" alt="RC document">`,'RC document · '+v.reg);}
+},true);
+
+/* ---------- vehicle add-ons ---------- */
+const _oa=openAddon;
+OV.openAddon=function(id){
+  if(!window.LIVE)return _oa(id);
+  adId=id;const v=ADDONS.find(a=>a.id===id);$('#adSub').textContent=v.reg;
+  const draw=dr=>{
+    const row=(l,r)=>`<div class="row"><span class="l">${l}</span><span class="r">${r}</span></div>`;
+    $('#adBody').innerHTML=`<div class="sect"><div class="st">Vehicle information</div>${row('Registration no.',`<span class="num">${v.reg}</span>`)}${row('Make',v.make)}${row('Model',v.model)}${row('Type',v.type)}${row('Category',badge(v.cat,CATS[v.cat].c))}${row('Colour',v.colour)}${row('Electric vehicle',v.ev?'Yes':'No')}${row('Region',v.region)}</div>
+     <div class="vsec" style="margin-top:0"><div class="vhead"><h2 class="h2">RC document</h2></div>${v.rcUrl?`<button class="doc" data-adview="rc" aria-label="View RC document full size"><img src="${v.rcUrl}" alt="RC document"><span class="zoom">${ic('search',13)}Tap to enlarge</span></button>`:`<div class="docmiss">${ic('file')}<b>No RC image uploaded</b></div>`}</div>
+     <div class="sect" style="margin-top:12px"><div class="st">Driver information</div>${dr==='load'?'<div class="muted" style="padding:10px 0">Loading driver…</div>':dr?
+       row('Name',esc(((dr.firstName||'')+' '+(dr.lastName||'')).trim()||'N/A'))+row('Phone',`<span class="vrow2" style="justify-content:flex-end">${fmtPhone(last10(dr.mobileNumber))}<span class="qc">${contactBtns(last10(dr.mobileNumber),esc(dr.firstName||'Driver'),true)}</span></span>`)+row('Status',esc(dr.verificationStatus||'N/A'))+row('Rating',`<span class="rating">⭐ ${dr.overAllRating!=null?num(dr.overAllRating).toFixed(1):'0.0'}</span> <span class="muted" style="font-weight:500">(${num(dr.totalRatingsReceived)} ratings)</span>`)
+       :`<div class="muted" style="padding:10px 0">${v.drvId?'Could not load driver details.':'No driver linked to this vehicle.'}</div>`}</div>`;
+  };
+  draw(v.drvId?'load':null);
+  if(v.drvId)GET('/Driver/Get/'+v.drvId+'/'+v.pk).then(dr=>{if(adId===id)draw(dr);}).catch(()=>{if(adId===id)draw(null);});
+  $('#adBar').innerHTML=`<button class="btn okb" id="adApprove" style="flex:1">${ic('check',18)}APPROVE</button>`;
+  $('#adApprove').onclick=()=>fsOpen({type:'confirm',title:'Confirm approval',desc:`Approve add-on vehicle ${v.reg}? This action cannot be undone.`,btn:'Approve',cancel:'Cancel',onOk:async()=>{
+    try{await POST('/Vehicle/AddOn/Approve/'+v.id+'/'+v.pk,{});
+      setTimeout(()=>fsOpen({type:'success',title:'Approved!',desc:'The add-on vehicle has been successfully approved.',btn:'Done',onOk:()=>{ADDONS.splice(ADDONS.findIndex(a=>a.id===adId),1);drawAddons();drawHome();back();}}),250);
+    }catch(e){setTimeout(()=>fsOpen({type:'error',title:'Error',desc:e.message}),250);}}});
+  show('addondetail');$('#adBody').scrollTop=0;
+};
+
+/* ---------- get otp ---------- */
+OV.otpSample=()=>{const b=$('#otpSample');if(b&&b.parentElement)b.parentElement.style.display='none';};
+function otpLive(){
+  $('#otpGo').onclick=async()=>{
+    const p=$('#otpPhone').value.trim(),res=$('#otpResult');clearInterval(otpTimer);
+    if(p.length!==10){res.innerHTML='<div class="err">Enter a valid 10-digit mobile number.</div>';return;}
+    const b=$('#otpGo');b.disabled=true;res.innerHTML='<div class="muted" style="padding:12px 2px">Fetching…</div>';
+    try{
+      const j=await GET('/CustomerCare/GetDriverPassengerOtp/'+p+'/'+otpRole),code=String((j&&j.otp)||'');
+      if(!code)throw {message:otpRole+' does not have an OTP'};
+      let left=300;recentOtps.unshift([otpRole,'—',p,esc(code),new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:false})]);recentOtps.length=Math.min(recentOtps.length,6);drawOtpRecent();
+      const fmt=s=>Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+      res.innerHTML=`<div class="otpbox"><div class="muted" style="font-size:12px">${otpRole} · ${fmtPhone(p)}</div><div class="otpcode">${esc(code)}</div>
+       <div class="muted" style="font-size:12px">Fetched just now. Valid for about <b id="otpLeft" style="color:var(--ink)">${fmt(left)}</b></div>
+       <div class="btns" style="margin-top:12px"><button class="btn" data-copy="${esc(code)}">${ic('copy',17)}Copy OTP</button><button class="btn" id="otpAgain">Refresh</button></div></div>`;
+      $('#otpAgain').onclick=()=>$('#otpGo').click();
+      otpTimer=setInterval(()=>{left--;const el=$('#otpLeft');if(!el||left<0){clearInterval(otpTimer);return;}el.textContent=fmt(left);},1000);
+    }catch(e){res.innerHTML=`<div class="err">${esc(e.message)}</div>`;}
+    b.disabled=false;
+  };
+}
+
+/* ---------- airport + fare multiplier ---------- */
+const inputBox=(id,ph,type)=>`<div class="field" style="box-shadow:none;background:var(--chip);margin-top:10px"><input id="${id}" ${type==='password'?'type="password"':'inputmode="numeric"'} placeholder="${ph}" autocomplete="off"></div>`;
+function airLive(){
+  $('#airList').onclick=null;$('#airList').onchange=null;
+  $('#airList').innerHTML=`<div class="card"><div class="mini-h" style="margin-top:0">Current airport multiplier</div><div class="otpcode" id="airCur">…</div>
+    ${inputBox('airVal','New value, 1 to 30 (%)')}${inputBox('airAuth','Auth code','password')}</div>`;
+  GET('/CustomerCare/GetCarFromAirportPercentageMultiplier').then(j=>{const el=$('#airCur');if(el)el.textContent=((j&&j.carFromAirportPercentageMultiplier)||'—')+'%';$('#airVal').value=(j&&j.carFromAirportPercentageMultiplier)||'';}).catch(e=>{const el=$('#airCur');if(el)el.textContent='—';oops(e);});
+  $('#airSave').textContent='Apply multiplier';
+  $('#airSave').onclick=async()=>{
+    const v=parseInt($('#airVal').value,10);
+    if(!(v>=1&&v<=30))return fsOpen({type:'error',title:'Validation error',desc:'Please enter a valid multiplier value between 1 and 30.'});
+    if(!$('#airAuth').value.trim())return fsOpen({type:'error',title:'Validation error',desc:'Auth code is required to apply changes.'});
+    try{await POST('/CustomerCare/UpdateCarFromAirportPercentageMultiplier/'+v,{});fsOpen({type:'success',title:'Success',desc:`Airport fare multiplier updated to ${v}% successfully.`,btn:'Done'});$('#airCur').textContent=v+'%';$('#airAuth').value='';}
+    catch(e){fsOpen({type:'error',title:'Error',desc:e.message});}
+  };
+}
+let fm={vt:'Car',act:'Increase'};
+function fareLive(){
+  const c=$('#surgeNote').closest('.card');if(c)c.style.display='none';
+  $('#fareList').innerHTML=`<div class="card"><div class="mini-h" style="margin-top:0">Vehicle type</div><div class="seg" id="fmVt"><button data-v="Car" class="on">Car</button><button data-v="Auto">Auto</button></div>
+    <div class="mini-h">Change</div><div class="seg" id="fmAct"><button data-v="Increase" class="on">Increase</button><button data-v="Decrease">Decrease</button></div>
+    <div class="mini-h">Location</div><div class="field" style="box-shadow:none;background:var(--chip)"><select id="fmLoc" class="sel"><option>Loading…</option></select></div>
+    <div class="mini-h">Percentage (0 to 99)</div>${inputBox('fmPct','e.g. 20').replace('margin-top:10px','margin-top:0')}${inputBox('fmAuth','Auth code','password')}<div class="muted" id="fmNote" style="font-size:12px;margin-top:10px"></div></div>`;
+  const note=()=>{const n=parseInt($('#fmPct').value,10);$('#fmNote').textContent=isNaN(n)?'':`Multiplier sent: ${parseFloat((fm.act==='Increase'?1+n/100:1-n/100).toFixed(2))}x`;};
+  $('#fmVt').onclick=e=>{const b=e.target.closest('button');if(!b)return;fm.vt=b.dataset.v;$$('#fmVt button').forEach(x=>x.classList.toggle('on',x===b));};
+  $('#fmAct').onclick=e=>{const b=e.target.closest('button');if(!b)return;fm.act=b.dataset.v;$$('#fmAct button').forEach(x=>x.classList.toggle('on',x===b));note();};
+  $('#fmPct').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');note();};
+  GET('/CustomerCare/GetConfigurationPartitionKeys').then(j=>{const l=arr(j).map(String);$('#fmLoc').innerHTML=l.map(x=>`<option>${esc(x)}</option>`).join('')||'<option value="">No locations</option>';}).catch(e=>{$('#fmLoc').innerHTML='<option value="">Unavailable</option>';oops(e);});
+  $('#fareSave').textContent='Apply multiplier';
+  $('#fareSave').onclick=async()=>{
+    const loc=$('#fmLoc').value,n=parseInt($('#fmPct').value,10);
+    if(!loc)return fsOpen({type:'error',title:'Validation error',desc:'Please select a location.'});
+    if(isNaN(n)||n<0||n>99)return fsOpen({type:'error',title:'Validation error',desc:'Please enter a valid multiplier value between 0 and 99.'});
+    if(!$('#fmAuth').value.trim())return fsOpen({type:'error',title:'Validation error',desc:'Auth code is required to apply changes.'});
+    const pct=parseFloat((fm.act==='Increase'?1+n/100:1-n/100).toFixed(2)).toString();
+    try{await POST('/CustomerCare/UpdateOverAllMultiplier/'+fm.vt+'/'+pct+'/'+encodeURIComponent(loc),{authCode:$('#fmAuth').value});
+      fsOpen({type:'success',title:'Success',desc:`${fm.vt} fare multiplier updated by ${fm.act==='Increase'?'+':'-'}${n}% (${pct}) for ${esc(loc)} successfully.`,btn:'Done'});$('#fmAuth').value='';}
+    catch(e){fsOpen({type:'error',title:'Error',desc:e.message});}
+  };
+}
+
+/* ---------- live search wrappers ---------- */
+const sOn=(sel,fn)=>{const el=$(sel);const prev=el.oninput;el.oninput=e=>{prev&&prev.call(el,e);if(window.LIVE)fn(e);};};
+sOn('#phoneIn',()=>{const p=tPhone;if(p.length!==10||tTab==='recent')return;
+  (tTab==='driver'?GET('/Driver/'+p+'/TripList'):GET('/passenger/'+p+'/TripList/Kerala')).then(a=>{mergeTrips(a);if(tPhone===p)renderTrips();}).catch(oops);});
+sOn('#drvSearch',()=>{const p=last10(drvQ);if(drvQ.trim().length!==10)return;
+  GET('/CustomerCare/GetByMobileNumber/'+p).then(a=>{arr(a).forEach(r=>{const d=upsert(mapDriver(r,'Pending'));if(d.status==='Approved'){d.stub=true;}});if(drvQ.trim()===p)renderDrivers();}).catch(oops);});
+
+/* ---------- screen hooks ---------- */
+const _show=show;
+OV.show=function(name,opts){
+  const r=_show(name,opts);
+  if(window.LIVE)try{
+    if(name==='drivers'&&!fresh('drivers',30000))loadDrivers();
+    if(name==='trips'&&!fresh('trips',30000))loadTrips();
+    if(name==='addon'&&!fresh('addons',30000))loadAddons();
+    if(name==='top'&&!fresh('top',60000))loadTop().then(()=>{if(current==='top')renderTop();});
+    if(name==='city'&&!fresh('cities',60000))loadCities();
+    if(name==='missed'&&!fresh('missed',60000)){stamp.missed=Date.now();loadMissed();}
+    if(name==='reports')window.drawReport();
+    if(name==='otp')otpLive();
+    if(name==='airport')airLive();
+    if(name==='fare')fareLive();
+    if(name==='home'){kpis();}
+  }catch(e){}
+  return r;
+};
+
+/* ---------- boot ---------- */
+async function startLive(){
+  install();window.LIVE=true;
+  [DRIVERS,TRIPS,ADDONS,MISSED,CITIES,recentOtps].forEach(a=>{a.length=0;});
+  HOME.driver={title:'Driver registration',labels:['Approved drivers','Pending verification','Document pending','Rejected'],v:[0,0,0,0],tot:1};
+  const now=new Date();$('#greet').textContent=(now.getHours()<12?'Good morning':now.getHours()<17?'Good afternoon':'Good evening')+' · '+now.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'});
+  const eb=$('#envBtn');eb.textContent=ENV;
+  renderDrivers();renderTrips();drawHome();drawAddons();drawOtpRecent();otpSample();kpis();
+  $('#drvList').innerHTML=empty('drivers','Loading…');
+  await Promise.allSettled([loadDrivers(),loadTrips(),loadAddons()]);
+  loadCities();
+  loadTop();
+}
+const eb=$('#envBtn');
+eb.onclick=()=>{
+  if(window.LIVE)fsOpen({type:'confirm',title:'Sign out?',desc:`You are signed in to ${ENV.toLowerCase()}. You will need a new OTP to sign in again.`,btn:'Sign out',cancel:'Stay',onOk:logout});
+  else if(NATIVE)showLogin();
+  else toast('Sample data. Live mode runs in the Android app.');
+};
+if(NATIVE){if(ls.g('token'))startLive();else showLogin();}
+})();
+
 </script>

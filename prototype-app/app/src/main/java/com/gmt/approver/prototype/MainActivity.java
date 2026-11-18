@@ -101,8 +101,72 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** Runs one HTTP request off the UI thread and hands the result to window.__http(id, status, body). */
+    private void runHttp(final int id, final String method, final String url, final String body,
+                         final String token, final String multipartField, final String fileName,
+                         final String mime) {
+        new Thread(() -> {
+            int status = 0;
+            String text;
+            try {
+                java.net.HttpURLConnection c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
+                c.setConnectTimeout(20000);
+                c.setReadTimeout(30000);
+                c.setRequestMethod(method);
+                c.setRequestProperty("Accept", "application/json");
+                if (token != null && token.length() > 0) c.setRequestProperty("Authorization", "Bearer " + token);
+                if (multipartField != null) {
+                    String boundary = "----approver" + System.currentTimeMillis();
+                    c.setDoOutput(true);
+                    c.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+                    byte[] data = android.util.Base64.decode(body, android.util.Base64.DEFAULT);
+                    java.io.OutputStream o = c.getOutputStream();
+                    o.write(("--" + boundary + "\r\nContent-Disposition: form-data; name=\"" + multipartField
+                            + "\"; filename=\"" + fileName + "\"\r\nContent-Type: " + mime + "\r\n\r\n").getBytes("UTF-8"));
+                    o.write(data);
+                    o.write(("\r\n--" + boundary + "--\r\n").getBytes("UTF-8"));
+                    o.close();
+                } else {
+                    c.setRequestProperty("Content-Type", "application/json");
+                    if (!"GET".equals(method) && body != null && body.length() > 0) {
+                        c.setDoOutput(true);
+                        java.io.OutputStream o = c.getOutputStream();
+                        o.write(body.getBytes("UTF-8"));
+                        o.close();
+                    }
+                }
+                status = c.getResponseCode();
+                java.io.InputStream in = status >= 400 ? c.getErrorStream() : c.getInputStream();
+                java.io.ByteArrayOutputStream bo = new java.io.ByteArrayOutputStream();
+                if (in != null) {
+                    byte[] buf = new byte[8192];
+                    int n;
+                    while ((n = in.read(buf)) > 0) bo.write(buf, 0, n);
+                    in.close();
+                }
+                text = bo.toString("UTF-8");
+            } catch (Exception e) {
+                text = String.valueOf(e.getMessage());
+            }
+            final String js = "window.__http(" + id + "," + status + "," + org.json.JSONObject.quote(text) + ")";
+            runOnUiThread(() -> web.evaluateJavascript(js, null));
+        }).start();
+    }
+
     /** Exposed to the page as window.AndroidApp. */
     private class Bridge {
+        /** JSON request; the result comes back through window.__http. */
+        @JavascriptInterface
+        public void http(int id, String method, String url, String body, String token) {
+            runHttp(id, method, url, body, token, null, null, null);
+        }
+
+        /** Multipart upload of a base64 file under the given form field. */
+        @JavascriptInterface
+        public void upload(int id, String url, String field, String fileName, String mime, String base64, String token) {
+            runHttp(id, "POST", url, base64, token, field, fileName, mime);
+        }
+
         @JavascriptInterface
         public void copy(String text) {
             ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
