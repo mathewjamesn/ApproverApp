@@ -505,6 +505,13 @@ a.btn.pri{color:var(--solid-ink)}
     <div class="trkcard" id="trkCard"></div>
   </section>
 
+  <!-- PASSENGERS -->
+  <section class="screen sub" id="s-pax">
+    <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1>Passengers</h1><div class="s">Look up a passenger by mobile number</div></div></div>
+    <div style="padding:0 16px 8px;display:flex;gap:8px"><div class="field" style="flex:1"><span data-ic="search"></span><input id="paxIn" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number"></div><button class="btn pri" id="paxGo" style="padding:0 18px">Search</button></div>
+    <div class="body" id="paxBody" style="padding-top:6px"></div>
+  </section>
+
   <!-- SEARCH -->
   <section class="screen sub" id="s-search">
     <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button>
@@ -712,7 +719,7 @@ const empty=(i,t)=>`<div class="empty">${ic(i)}${t}</div>`;
 hydrate(document);
 
 /* ---------- navigation ---------- */
-const SUB=['detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail'];
+const SUB=['pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail'];
 const stack=[];let current='home';
 function show(name,opts={}){
   closeMenu();
@@ -757,7 +764,7 @@ $('#kOnline').textContent=(TOTAL_CARS+TOTAL_AUTOS).toLocaleString('en-IN');
 $('#kMissed').textContent=MISSED.length;
 const TILES=[
  ['Approvals',[['Pending Drivers','clock','verifyPending','var(--info)',()=>DRIVERS.filter(d=>d.status==='Pending'||d.status==='Document Pending').length],['Vehicle Add-on','car','addon','var(--auto)',()=>ADDONS.length],['Rejected Drivers','ban','verifyRej','var(--bad)']]],
- ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','','var(--rental)']]],
+ ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','pax','var(--rental)']]],
  ['Insights',[['Online by City','building','city','var(--resv)',1],['Top Online Drivers','trophy','top','var(--warn)',1],['Reports','chart','reports','var(--accent)'],['Missed Requests','alert','missed','var(--bad)',1]]],
  ['Tools',[['Get OTP','key','otp','#6366F1'],['Fare Multiplier','gauge','fare','var(--auto)'],['Airport Multiplier','plane','airport','#06B6D4'],['Send Notification','send','','#EC4899']]]];
 function drawHome(){$('#homeTiles').innerHTML=TILES.map(([h,items])=>`<div class="stl">${h}</div><div class="tgrid">${items.map(t=>{
@@ -1828,6 +1835,51 @@ OV.show=function(name,opts){
 };
 
 
+
+/* ---------- passengers ---------- */
+let paxPhone='',paxData=null;
+const paxDemo=p=>{const h=PASSENGERS.find(x=>x[1]===p);return h?{id:'PAX'+p,firstName:h[0].split(' ')[0],lastName:h[0].split(' ').slice(1).join(' '),mobileNumber:p,emailAddress:'',isProfileUpdateComplete:true,temporarilyBlockedForCancellation:false,currentWalletAmount:120,totalKilometersCompleted:214,carbonUsageKg:18,latestTripId:'',rideCancelCountForTheDay:0,totalRideCancelCount:2,partitionKey:'Kerala'}:null;};
+function paxRender(msg){
+  const el=$('#paxBody');
+  if(msg){el.innerHTML=empty('users',msg);return;}
+  const p=paxData,blocked=!!p.temporarilyBlockedForCancellation,ph=last10(p.mobileNumber),nm=esc(((p.firstName||'')+' '+(p.lastName||'')).trim()||'Passenger');
+  const row=(l,r)=>`<div class="row"><span class="l">${l}</span><span class="r">${r}</span></div>`;
+  const cp=v=>v?`${esc(String(v).slice(0,5))}…${esc(String(v).slice(-5))} <button data-copy="${esc(v)}" aria-label="Copy" class="muted" style="vertical-align:middle">${ic('copy',15)}</button>`:'--';
+  el.innerHTML=`<div class="card" style="margin-bottom:12px"><div class="drow"><div class="avatar">${initials(nm)}</div><div style="flex:1;min-width:0"><div class="dname">${nm}</div>
+     <div class="muted" style="font-size:13px">${fmtPhone(ph)}</div><div style="margin-top:6px">${badge(blocked?'Blocked':'Active',blocked?'var(--bad)':'var(--ok)')}</div></div><div class="qc">${contactBtns(ph,nm)}</div></div>
+     <div class="btns" style="margin-top:14px"><button class="btn pri" id="paxTrips">${ic('trips',18)}View trips</button></div></div>
+   <div class="sect"><div class="st">Profile overview</div>${row('Email',esc(p.emailAddress||'--'))}${row('Profile complete',p.isProfileUpdateComplete?'Yes':'No')}${row('Passenger ID',cp(p.id))}</div>
+   <div class="sect"><div class="st">Trip &amp; account info</div>${row('Wallet amount','₹'+num(p.currentWalletAmount).toFixed(2))}${row('Total distance',num(p.totalKilometersCompleted)+' km')}${row('Carbon saved',num(p.carbonUsageKg)+' kg')}
+     ${row('Latest trip ID',cp(p.latestTripId))}${row('Cancellations today',num(p.rideCancelCountForTheDay))}${row('Total cancellations',num(p.totalRideCancelCount))}</div>
+   <div class="sect"><div class="st">Account actions</div>
+     <div class="btns" style="flex-direction:column;align-items:stretch;gap:10px;padding:6px 0 2px"><button class="btn" id="paxBlock">${ic('ban',18)}${blocked?'Unblock passenger':'Block passenger'}</button>
+     <button class="btn" id="paxReset">${ic('undo',18)}Reset ride status</button><button class="btn" id="paxDel" style="color:var(--bad)">${ic('close',18)}Delete passenger</button></div></div>`;
+  $('#paxTrips').onclick=()=>{tTab='passenger';stack.length=0;show('trips');resetTripTabs();$('#phoneIn').placeholder='Enter passenger phone (10 digits)';$('#phoneIn').value=ph;$('#phoneIn').dispatchEvent(new Event('input'));drawTrips();};
+  const act=(title,desc,btn,fn)=>fsOpen({type:'confirm',title,desc,btn,cancel:'Cancel',onOk:async()=>{
+    try{if(window.LIVE)await fn();else await wait(400);setTimeout(()=>fsOpen({type:'success',title:'Done',desc:title+' completed successfully.',btn:'OK',onOk:()=>paxSearch(ph,true)}),250);}
+    catch(e){setTimeout(()=>fsOpen({type:'error',title:'Error',desc:e.message}),250);}}});
+  $('#paxBlock').onclick=()=>act(blocked?'Unblock passenger':'Block passenger',`Are you sure you want to ${blocked?'unblock':'block'} ${nm}?`,blocked?'Unblock':'Block',()=>POST('/CustomerCare/BlockAndUnBlockPassenger/'+ph+'/'+(!blocked),{}));
+  $('#paxReset').onclick=()=>act('Reset ride status',`Reset the ride status for ${nm}?`,'Reset',()=>POST('/Passenger/ResetRideStatus/'+ph,{}));
+  $('#paxDel').onclick=()=>fsOpen({type:'confirm',title:'Delete passenger?',desc:`This permanently deletes ${nm}. This cannot be undone.`,btn:'Delete',cancel:'Cancel',onOk:async()=>{
+    try{if(window.LIVE)await api('DELETE','/Passenger/Delete/'+p.id+'/'+(p.partitionKey||'Kerala'));else await wait(400);paxData=null;
+      setTimeout(()=>fsOpen({type:'success',title:'Deleted',desc:'The passenger was deleted.',btn:'OK',onOk:()=>paxRender('Search for a passenger by mobile number')}),250);}
+    catch(e){setTimeout(()=>fsOpen({type:'error',title:'Error',desc:e.message}),250);}}});
+}
+async function paxSearch(p,quiet){
+  p=last10(p);if(p.length!==10){paxRender('Enter a valid 10-digit mobile number.');return;}
+  paxPhone=p;if(!quiet)$('#paxBody').innerHTML=empty('search','Searching…');
+  try{
+    let d=window.LIVE?await GET('/Passenger/GetByMobileNumber/'+p):paxDemo(p);
+    if(Array.isArray(d))d=d[0];
+    if(!d||!d.mobileNumber&&!d.id){paxData=null;paxRender('No passenger found with '+fmtPhone(p)+'.');return;}
+    paxData=d;paxRender();
+  }catch(e){paxData=null;paxRender(e.status===404?'No passenger found with '+fmtPhone(p)+'.':e.message);}
+}
+$('#paxIn').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
+$('#paxIn').onkeydown=e=>{if(e.key==='Enter')paxSearch($('#paxIn').value);};
+$('#paxGo').onclick=()=>paxSearch($('#paxIn').value);
+paxRender('Search for a passenger by mobile number');
+
 /* ---------- pull down to refresh ---------- */
 const REFRESH={
   home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons()]),
@@ -1838,6 +1890,7 @@ const REFRESH={
   city:()=>loadCities(),
   missed:()=>{stamp.missed=Date.now();return loadMissed();},
   reports:()=>{Object.keys(cache).forEach(k=>delete cache[k]);stamp.reg=0;return window.drawReport();},
+  pax:()=>paxPhone?paxSearch(paxPhone,true):Promise.resolve(),
   dtrips:async()=>{const d=drv(dtId);if(d){delete gotTrips[d.phone];await loadDriverTrips(d.phone);renderDT();}}
 };
 let ptrBusy=false;
