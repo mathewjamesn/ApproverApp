@@ -1575,7 +1575,15 @@ async function completedLive(days){
 OV.drawReport=async function(){
   if(!window.LIVE)return;
   const el=$('#reportBody');
-  if(repTab==='passenger'){el.innerHTML=empty('users','The passenger summary is not available in this app yet.');return;}
+  if(repTab==='passenger'){
+    el.innerHTML=empty('users','Loading…');
+    try{
+      const j=await GET('/Passenger/GetCount');
+      let n=typeof j==='number'?j:typeof j==='string'?parseInt(j,10):(j&&(j.count??j.total??j.passengerCount??j.totalCount));
+      n=Number(n);if(!Number.isFinite(n))throw {message:'The server did not return a passenger count.'};
+      if(repTab==='passenger')el.innerHTML='<div class="card"><h2 class="h2">Passenger registration</h2><div class="total" style="margin-top:10px"><span class="muted">Total passengers</span><b>'+n.toLocaleString('en-IN')+'</b></div><div class="muted" style="font-size:12px;margin-top:8px">Registered passengers across all regions.</div></div>';
+    }catch(e){if(repTab==='passenger')el.innerHTML=empty('alert','Could not load the passenger count. '+esc(e.message));}
+    return;}
   if(repTab==='driver'){if(!fresh('reg',60000))await loadRegistration();el.innerHTML=summaryCard('driver');return;}
   el.innerHTML=empty('chart','Loading report…');
   const html=await completedLive(repDays);if(repTab!=='trips')return;el.innerHTML=html;
