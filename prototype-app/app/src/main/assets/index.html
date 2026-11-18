@@ -1392,12 +1392,12 @@ function showLogin(msg){
 function loginStep1(msg){
   loginEl.innerHTML=`<div class="lg"><div class="lgmark">${ic('check',30)}</div><h1>TOK Approver</h1><p class="muted">Sign in with your customer-care number</p>
    <div class="seg" id="lgEnv" style="margin:18px 0 12px"><button data-e="PRODUCTION" class="${ENV==='PRODUCTION'?'on':''}">Production</button><button data-e="STAGING" class="${ENV==='STAGING'?'on':''}">Staging</button></div>
-   <div class="field"><span>+91</span><input id="lgPhone" inputmode="numeric" maxlength="10" placeholder="10-digit mobile number" autocomplete="tel"></div>
+   <div class="field"><span>+91</span><input id="lgPhone" inputmode="tel" maxlength="16" placeholder="10-digit mobile number" autocomplete="tel"></div>
    <div class="lgerr" id="lgErr">${esc(msg||'')}</div>
    <button class="btn pri" id="lgGo" style="width:100%">Send OTP</button>
    <button class="lglink" id="lgDemo">Explore with sample data</button></div>`;
   $('#lgEnv').onclick=e=>{const b=e.target.closest('button');if(!b)return;ENV=b.dataset.e;ls.s('env',ENV);$$('#lgEnv button').forEach(x=>x.classList.toggle('on',x===b));};
-  $('#lgPhone').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
+  $('#lgPhone').oninput=e=>{let d=e.target.value.replace(/\D/g,'');if(d.length>10&&d.startsWith('91'))d=d.slice(2);else if(d.length>10&&d.startsWith('0'))d=d.slice(1);e.target.value=d.slice(0,10);};
   $('#lgDemo').onclick=()=>{loginEl.hidden=true;};
   $('#lgGo').onclick=async()=>{
     const p=$('#lgPhone').value.trim(),er=$('#lgErr');
@@ -1512,11 +1512,13 @@ async function loadLocations(){
   const ds=live().slice(0,30);
   await Promise.allSettled(ds.map(async d=>{try{const p=await fetchPos(d.phone);if(p){d.lat=p.lat;d.lon=p.lon;d.offline=String(p.status||'').toLowerCase()==='offline';}else d.lat=null;}catch(e){d.lat=null;}}));
 }
+let cityFail=0;
 async function loadCities(){
   try{
+    cityFail=0;
     const rows=await Promise.all(CITY_NAMES.map(async c=>{
       const [a,b]=await Promise.allSettled([GET('/Reports/GetDriversByAvailabilityStatus/'+encodeURIComponent(c)+'/Car/online'),GET('/Reports/GetDriversByAvailabilityStatus/'+encodeURIComponent(c)+'/Auto/online')]);
-      const n=x=>x.status==='fulfilled'?num(x.value&&x.value.totalDrivers):0;return [c,n(a),n(b)];}));
+      const n=x=>{if(x.status!=='fulfilled'){cityFail++;return 0;}return num(x.value&&x.value.totalDrivers);};return [c,n(a),n(b)];}));
     CITIES.length=0;rows.sort((x,y)=>(y[1]+y[2])-(x[1]+x[2])).forEach(r=>CITIES.push(r));
     stamp.cities=Date.now();drawCityBody();kpis();
   }catch(e){oops(e);}
@@ -1524,7 +1526,7 @@ async function loadCities(){
 function drawCityBody(){
   const cars=CITIES.reduce((a,c)=>a+c[1],0),autos=CITIES.reduce((a,c)=>a+c[2],0),mx=Math.max(1,...CITIES.map(c=>c[1]+c[2]));
   $('#cityBody').innerHTML='<div class="card">'+`<div class="total"><span class="muted">Online now</span><b>${(cars+autos).toLocaleString('en-IN')}</b></div>
-   <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>`+
+   <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
 async function loadMissed(){
@@ -1548,7 +1550,7 @@ function missedLive(){
 }
 function kpis(){
   const on=CITIES.reduce((a,c)=>a+c[1]+c[2],0);
-  $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN'):'–';
+  $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN')+(cityFail?'+':''):'–';
   $('#kMissed').textContent=stamp.missed||MISSED.length?MISSED.length:'–';
   const kt=$('.kstrip .kc[data-go="trips"] b');if(kt){const s=new Date();s.setHours(0,0,0,0);kt.textContent=TRIPS.length?TRIPS.filter(t=>t.date>=s).length:'–';}
 }
