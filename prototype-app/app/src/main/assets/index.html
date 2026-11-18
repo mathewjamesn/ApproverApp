@@ -44,7 +44,7 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 @media (max-width:480px){body{padding:0}.phone{width:100%;height:100%;border:0;border-radius:0;box-shadow:none}}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;background:var(--app)}
 .screen.on{display:flex}
-.body{flex:1;overflow-y:auto;min-height:0;padding:0 16px 110px;scrollbar-width:none}
+.body{flex:1;overflow-y:auto;min-height:0;padding:0 16px 130px;scrollbar-width:none}
 .sub .body{padding-bottom:28px}
 .body::-webkit-scrollbar{display:none}
 
@@ -53,13 +53,13 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .bar h1{font-family:var(--f-head);font-size:28px;line-height:1.1;margin:0;letter-spacing:-.03em;font-weight:800}
 .bar .s{color:var(--muted);font-size:13px;margin-top:3px}
 .bar .grow{flex:1;min-width:0}
-.sbar{padding-top:16px}
+.sbar{padding-top:30px}
 .sbar h1{font-size:20px}
 .ib{width:40px;height:40px;border-radius:50%;background:var(--card);box-shadow:var(--shadow);display:grid;place-items:center;flex:none;position:relative}
 .ib .dotb{position:absolute;top:9px;right:10px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--card)}
 
 /* nav */
-.nav{position:absolute;left:12px;right:12px;bottom:12px;z-index:30;background:var(--nav);border-radius:26px;box-shadow:var(--float);display:flex;padding:6px}
+.nav{position:absolute;left:12px;right:12px;bottom:calc(22px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--nav);border-radius:26px;box-shadow:var(--float);display:flex;padding:6px}
 .nav button{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 7px;border-radius:18px;font-size:11px;font-weight:600;color:#A8A8A8}
 .nav button.on{background:var(--lime);color:#000;font-weight:800}
 .phone.sub .nav{display:none}
@@ -77,7 +77,7 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .searchpill{text-align:left;display:flex;align-items:center;gap:10px;background:var(--card);box-shadow:var(--shadow);border-radius:16px;padding:12px 14px;color:var(--muted);width:100%}
 
 /* home header */
-.homehead{background:var(--nav);color:#fff;padding:calc(18px + env(safe-area-inset-top,0px)) 16px 56px;border-radius:0 0 30px 30px;flex:none}
+.homehead{background:var(--nav);color:#fff;padding:calc(34px + env(safe-area-inset-top,0px)) 16px 56px;border-radius:0 0 30px 30px;flex:none}
 .hrow{display:flex;align-items:center;gap:10px}
 .hrow .grow{flex:1;min-width:0}
 .hrow h1{margin:2px 0 0;font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1}
@@ -204,7 +204,7 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 /* map */
 .mapwrap{position:absolute;inset:0;background:var(--map-land);overflow:hidden}
 .mapwrap svg.base{position:absolute;inset:0;width:100%;height:100%}
-.maptop{position:absolute;left:12px;right:12px;top:12px;z-index:5;display:flex;flex-direction:column;gap:10px}
+.maptop{position:absolute;left:12px;right:12px;top:28px;z-index:5;display:flex;flex-direction:column;gap:10px}
 .maphead{background:var(--card);border-radius:20px;box-shadow:var(--float);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
 .maphead h1{margin:0;font-family:var(--f-head);font-size:18px}
 .maphead .pulse{background:var(--ok)}
@@ -212,9 +212,12 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .car button{width:100%;height:100%;display:grid;place-items:center;border-radius:50%;background:var(--card);border:2.5px solid var(--c);color:var(--c);box-shadow:0 3px 8px rgba(0,0,0,.28);transition:transform .15s}
 .car.sel{z-index:4}.car.sel button{transform:scale(1.25);background:var(--c);color:#fff}
 .car.hide{display:none}
-.maplegend{position:absolute;right:12px;bottom:106px;z-index:3;background:var(--card);border-radius:14px;padding:8px 10px;font-size:11px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:5px}
+.car button{scale:var(--inv,1)}
+.mapzoom{position:absolute;right:12px;top:50%;z-index:3;display:flex;flex-direction:column;gap:6px}
+.mapzoom button{width:40px;height:40px;border-radius:12px;background:var(--card);color:var(--ink);font-size:22px;font-weight:700;box-shadow:var(--shadow)}
+.maplegend{position:absolute;right:12px;bottom:124px;z-index:3;background:var(--card);border-radius:14px;padding:8px 10px;font-size:11px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:5px}
 .maplegend span{display:flex;align-items:center;gap:6px}
-.sheet{position:absolute;left:12px;right:12px;bottom:92px;z-index:6;background:var(--card);border-radius:24px;padding:16px;box-shadow:var(--float);transform:translateY(150%);transition:transform .25s ease}
+.sheet{position:absolute;left:12px;right:12px;bottom:112px;z-index:6;background:var(--card);border-radius:24px;padding:16px;box-shadow:var(--float);transform:translateY(150%);transition:transform .25s ease}
 .sheet.open{transform:none}
 .sheet .x{position:absolute;right:10px;top:10px;width:30px;height:30px;border-radius:50%;background:var(--chip);display:grid;place-items:center}
 .sheet .x .i{width:16px;height:16px}
@@ -321,7 +324,7 @@ a.ib{text-decoration:none;color:inherit}
 .trkmap .pin.drv{background:var(--solid);color:var(--solid-ink)}
 .trkmap .pin.pu{background:var(--bad);color:#fff}
 .etapill{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:5;background:var(--card);box-shadow:var(--float);border-radius:99px;padding:8px 14px;font-size:13px;font-weight:700;display:flex;gap:8px;align-items:center;white-space:nowrap}
-.trkcard{background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 24px rgba(14,26,43,.14);padding:14px 16px 18px;max-height:56%;overflow-y:auto;position:relative;z-index:6;scrollbar-width:none}
+.trkcard{background:var(--card);border-radius:24px 24px 0 0;box-shadow:0 -8px 24px rgba(14,26,43,.14);padding:14px 16px calc(40px + env(safe-area-inset-bottom,0px));max-height:60%;overflow-y:auto;position:relative;z-index:6;scrollbar-width:none}
 .trkcard .eta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}
 .trkcard .eta div{background:var(--chip);border-radius:14px;padding:10px 12px}
 .trkcard .eta small{color:var(--muted);font-size:11px}
@@ -391,7 +394,8 @@ a.btn.pri{color:var(--solid-ink)}
 
   <!-- MAP -->
   <section class="screen" id="s-map">
-    <div class="mapwrap" id="mapwrap">
+    <div class="mapwrap" id="mapwrap" style="touch-action:none">
+      <div id="maplayer" style="position:absolute;inset:0;transform-origin:0 0">
       <svg class="base" viewBox="0 0 360 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
         <rect width="360" height="600" fill="var(--map-land)"/>
         <path d="M0 470 C60 440 90 500 160 520 C230 540 290 500 360 530 L360 600 L0 600Z" fill="var(--map-water)"/>
@@ -410,6 +414,7 @@ a.btn.pri{color:var(--solid-ink)}
         </g>
       </svg>
       <div id="cars"></div>
+      </div>
       <div class="maptop">
         <div class="maphead"><h1>Live drivers</h1><span class="muted" style="display:flex;align-items:center;gap:7px;font-weight:600;font-size:13px"><span class="pulse"></span><span id="liveCount"></span></span></div>
         <div class="pills" id="catFilters" style="padding-bottom:4px"></div>
@@ -844,6 +849,32 @@ function openSheet(id){
 function closeSheet(){selected=null;$('#sheet').classList.remove('open');$$('.car').forEach(c=>c.classList.remove('sel'));}
 $('#sheet').onclick=e=>{if(e.target.closest('#sheetX'))closeSheet();};
 $('#mapwrap').addEventListener('click',e=>{if(e.target.id==='mapwrap'||e.target.closest('svg.base'))closeSheet();});
+/* pan + pinch/wheel zoom for the live map */
+(function(){
+  const wrap=$('#mapwrap'),layer=$('#maplayer'),cars=$('#cars');
+  let s=1.4,tx=0,ty=0,moved=false;const ptr=new Map();let pinch=0;
+  function clamp(){const W=wrap.clientWidth,H=wrap.clientHeight;tx=Math.min(0,Math.max(W*(1-s),tx));ty=Math.min(0,Math.max(H*(1-s),ty));}
+  function apply(){clamp();layer.style.transform=`translate(${tx}px,${ty}px) scale(${s})`;cars.style.setProperty('--inv',(1/s).toFixed(3));}
+  function zoomAt(f,cx,cy){const n=Math.min(3,Math.max(1,s*f));tx=cx-(cx-tx)*(n/s);ty=cy-(cy-ty)*(n/s);s=n;apply();}
+  const ctl=e=>e.target.closest('.maptop,.sheet,.maplegend,.mapzoom');
+  wrap.addEventListener('pointerdown',e=>{if(ctl(e))return;ptr.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;pinch=0;});
+  wrap.addEventListener('pointermove',e=>{
+    const p=ptr.get(e.pointerId);if(!p)return;
+    if(ptr.size===1){const dx=e.clientX-p.x,dy=e.clientY-p.y;if(Math.abs(dx)+Math.abs(dy)>3)moved=true;tx+=dx;ty+=dy;p.x=e.clientX;p.y=e.clientY;apply();}
+    else{p.x=e.clientX;p.y=e.clientY;const [a,b]=[...ptr.values()];const d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(pinch){const r=wrap.getBoundingClientRect();zoomAt(d/pinch,(a.x+b.x)/2-r.left,(a.y+b.y)/2-r.top);}pinch=d;moved=true;}
+  });
+  const end=e=>{ptr.delete(e.pointerId);pinch=0;};
+  wrap.addEventListener('pointerup',end);wrap.addEventListener('pointercancel',end);
+  wrap.addEventListener('click',e=>{if(moved){e.stopPropagation();e.preventDefault();moved=false;}},true);
+  wrap.addEventListener('wheel',e=>{e.preventDefault();const r=wrap.getBoundingClientRect();zoomAt(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
+  wrap.insertAdjacentHTML('beforeend','<div class="mapzoom"><button aria-label="Zoom in" id="zIn">+</button><button aria-label="Zoom out" id="zOut">−</button></div>');
+  const zc=()=>[wrap.clientWidth/2,wrap.clientHeight/2];
+  $('#zIn').onclick=()=>zoomAt(1.3,...zc());$('#zOut').onclick=()=>zoomAt(1/1.3,...zc());
+  window.addEventListener('resize',apply);
+  window.mapResetView=()=>{s=1.4;tx=-(wrap.clientWidth*(s-1))/2;ty=-(wrap.clientHeight*(s-1))/2;apply();};
+  setTimeout(window.mapResetView,0);
+})();
 function startMap(){
   catFilters();drawCars();clearInterval(mapTimer);
   mapTimer=setInterval(()=>{if(current!=='map')return;
@@ -1177,8 +1208,7 @@ function renderTop(){
   const names=['All',...new Set(live().map(d=>d.city))];
   pills($('#topCity'),topCity,v=>{topCity=v;renderTop();},names.map(n=>[n,n]));
   const list=live().filter(d=>topCity==='All'||d.city===topCity).sort((a,b)=>b.hrs-a.hrs);
-  $('#topBody').innerHTML=`<div class="card" style="margin-bottom:6px"><h2 class="h2" style="margin-bottom:8px">Online by city</h2>${cityRows()}</div>
-   <div class="sech"><h2 class="h2">Top drivers${topCity==='All'?'':' · '+topCity}</h2></div>`+
+  $('#topBody').innerHTML=`<div class="sech"><h2 class="h2">Top drivers${topCity==='All'?'':' · '+topCity}</h2></div>`+
    list.map((d,i)=>`<div class="drv"><span class="rank ${i===0?'g':''}">${i+1}</span><div class="meta"><b>${d.name}</b><span class="m">${fmtPhone(d.phone)} · ${d.city}</span><div style="margin-top:5px">${badge(d.cat,CATS[d.cat].c)}</div></div>
    <div style="text-align:right;font-size:12px" class="muted"><b class="num" style="display:block;color:var(--ink);font-size:17px;font-family:var(--f-head)">${d.hrs} h</b>${d.today} trips</div></div>`).join('');
 }
@@ -1259,4 +1289,3 @@ document.addEventListener('click',e=>{
 
 drawReport();
 </script>
-

@@ -32,6 +32,12 @@ public class MainActivity extends Activity {
         web = new WebView(this);
         web.setBackgroundColor(Color.BLACK);
         setContentView(web);
+        // Android 15 draws edge-to-edge; keep the page clear of the status and navigation bars.
+        web.setOnApplyWindowInsetsListener((v, insets) -> {
+            v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(),
+                    insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom());
+            return insets;
+        });
 
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
