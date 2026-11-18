@@ -8,6 +8,8 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   header: {
     backgroundColor: colors.primary,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 16,
@@ -53,7 +55,7 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.info,
+    color: colors.textPrimary,
   },
   listContent: {
     paddingHorizontal: 24,

@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { reportsService } from '../../../services/api/reportsService';
+import { fetchRecentTrips } from '../../../services/api/tripsApi';
+import { CITIES_LIST } from '../OnlineDriversByCityScreen';
 import { useTheme } from '../../../theme/ThemeContext';
 import { useEnvironment } from '../../../context/EnvironmentContext';
 
@@ -63,6 +66,36 @@ export default function HomeScreen() {
   const { colors } = useTheme();
   const { environment } = useEnvironment();
 
+  const [online, setOnline] = useState<number | null>(null);
+  const [tripsToday, setTripsToday] = useState<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      (async () => {
+        try {
+          const trips = await fetchRecentTrips();
+          const start = new Date();
+          start.setHours(0, 0, 0, 0);
+          const n = trips.filter((t: any) => new Date(t.createdOn || t.tripStartDate).getTime() >= start.getTime()).length;
+          if (alive) setTripsToday(n);
+        } catch {}
+        try {
+          const counts = await Promise.all(
+            CITIES_LIST.flatMap((c) => [
+              reportsService.getDriversCountByAvailabilityStatus(c, 'Car', 'online'),
+              reportsService.getDriversCountByAvailabilityStatus(c, 'Auto', 'online'),
+            ]),
+          );
+          if (alive) setOnline(counts.reduce((a, b) => a + b, 0));
+        } catch {}
+      })();
+      return () => {
+        alive = false;
+      };
+    }, []),
+  );
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   const today = new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -81,6 +114,20 @@ export default function HomeScreen() {
           <View style={s.env}>
             <Text style={s.envText}>{environment}</Text>
           </View>
+        </View>
+        <View style={s.kstrip}>
+          <TouchableOpacity style={[s.kc, { backgroundColor: LIME }]} onPress={() => navigation.navigate('OnlineDriversByCity')}>
+            <Text style={[s.kl, { color: '#000' }]}>● Online now</Text>
+            <Text style={[s.kv, { color: '#000' }]}>{online === null ? '–' : online.toLocaleString('en-IN')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.kc, { backgroundColor: '#1F1F1F' }]} onPress={() => navigation.navigate('Trips')}>
+            <Text style={s.kl}>Trips today</Text>
+            <Text style={s.kv}>{tripsToday === null ? '–' : tripsToday.toLocaleString('en-IN')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[s.kc, { backgroundColor: '#1F1F1F' }]} onPress={() => navigation.navigate('MissedRequests')}>
+            <Text style={s.kl}>Missed</Text>
+            <Text style={s.kv}>–</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -129,6 +176,10 @@ const s = StyleSheet.create({
   hello: { color: '#fff', fontSize: 26, fontWeight: '800', marginTop: 2 },
   env: { backgroundColor: LIME, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5 },
   envText: { color: '#000', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  kstrip: { flexDirection: 'row', gap: 8, marginTop: 18 },
+  kc: { flex: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 12 },
+  kl: { color: '#B5B5B5', fontSize: 11, fontWeight: '700' },
+  kv: { color: '#fff', fontSize: 22, fontWeight: '800', marginTop: 2 },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',

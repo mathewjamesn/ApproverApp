@@ -14,7 +14,9 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   header: {
-    backgroundColor: colors.primary, 
+    backgroundColor: colors.primary,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28, 
     paddingHorizontal: 24,
     paddingBottom: 48,
   },

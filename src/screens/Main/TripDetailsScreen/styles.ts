@@ -5,6 +5,8 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background, paddingBottom: 18 },
   header: {
     backgroundColor: colors.primary,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,

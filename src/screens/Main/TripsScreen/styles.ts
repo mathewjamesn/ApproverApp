@@ -8,6 +8,8 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   header: {
     backgroundColor: colors.primary,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     paddingHorizontal: 24,
     paddingBottom: 24,
     paddingTop: 16,
@@ -52,7 +54,7 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.info,
+    color: colors.textPrimary,
   },
   searchContainer: {
     flexDirection: 'row',
@@ -98,8 +100,8 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
   },
   filterPillActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    backgroundColor: colors.tabActiveBg,
+    borderColor: colors.textPrimary,
   },
   filterText: {
     fontSize: 13,
@@ -107,7 +109,7 @@ export const getStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textSecondary,
   },
   filterTextActive: {
-    color: colors.primaryText,
+    color: colors.textPrimary,
   },
   listContent: {
     paddingHorizontal: 24,

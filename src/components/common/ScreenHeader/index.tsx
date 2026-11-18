@@ -35,7 +35,7 @@ export default function ScreenHeader({ title, subtitle, onBack, onRefresh, refre
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 18 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   btn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 19, fontWeight: '700' },
   sub: { fontSize: 12, opacity: 0.8, marginTop: 1 },
