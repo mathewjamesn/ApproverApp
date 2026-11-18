@@ -3,6 +3,8 @@ name: Build GMT Approver APK
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "prototype-app/**"
   workflow_dispatch:
 
 permissions:

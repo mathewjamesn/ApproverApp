@@ -1,0 +1,51 @@
+name: Build Approver Prototype APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "prototype-app/**"
+      - ".github/workflows/build-prototype-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prototype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Build prototype APK
+        working-directory: prototype-app
+        run: gradle assembleRelease --no-daemon
+
+      - name: Name the APK
+        run: |
+          mkdir -p dist
+          cp prototype-app/app/build/outputs/apk/release/app-release.apk "dist/ApproverPrototype-${{ github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ApproverPrototype-apk
+          path: dist/*.apk
+          retention-days: 30
+
+      - name: Publish APK as a release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "prototype-${{ github.run_number }}" dist/*.apk \
+            --title "Approver Prototype (black and lime) build ${{ github.run_number }}" \
+            --notes "Self-contained prototype with sample data. No backend needed. Built from ${{ github.sha }}"
