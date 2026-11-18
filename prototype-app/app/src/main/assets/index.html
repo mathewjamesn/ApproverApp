@@ -512,6 +512,22 @@ a.btn.pri{color:var(--solid-ink)}
     <div class="body" id="paxBody" style="padding-top:6px"></div>
   </section>
 
+  <!-- SEND NOTIFICATION -->
+  <section class="screen sub" id="s-notify">
+    <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1>Send notification</h1><div class="s">Push message to all passengers or drivers</div></div></div>
+    <div class="body">
+      <div class="card">
+        <div class="seg" id="ntTabs" style="margin-bottom:14px"><button class="on" data-a="Passenger">Passengers</button><button data-a="Driver">Drivers</button></div>
+        <div class="mini-h" style="margin-top:0">Title</div>
+        <div class="field" style="box-shadow:none;background:var(--chip)"><input id="ntTitle" maxlength="80" placeholder="e.g. Back to Home ?"></div>
+        <div class="mini-h">Message</div>
+        <div class="field" style="box-shadow:none;background:var(--chip);align-items:flex-start"><textarea id="ntMsg" rows="4" maxlength="240" placeholder="e.g. TOK team is ready to take you back!" style="width:100%;background:transparent;border:0;color:var(--ink);font:inherit;font-size:15px;padding:13px 0;outline:none;resize:none"></textarea></div>
+        <div class="muted" id="ntNote" style="font-size:12px;margin:10px 2px 14px"></div>
+        <button class="btn pri" id="ntSend" style="width:100%">Send notification</button>
+      </div>
+    </div>
+  </section>
+
   <!-- SEARCH -->
   <section class="screen sub" id="s-search">
     <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button>
@@ -719,7 +735,7 @@ const empty=(i,t)=>`<div class="empty">${ic(i)}${t}</div>`;
 hydrate(document);
 
 /* ---------- navigation ---------- */
-const SUB=['pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail'];
+const SUB=['notify','pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail'];
 const stack=[];let current='home';
 function show(name,opts={}){
   closeMenu();
@@ -766,7 +782,7 @@ const TILES=[
  ['Approvals',[['Pending Drivers','clock','verifyPending','var(--info)',()=>DRIVERS.filter(d=>d.status==='Pending'||d.status==='Document Pending').length],['Vehicle Add-on','car','addon','var(--auto)',()=>ADDONS.length],['Rejected Drivers','ban','verifyRej','var(--bad)']]],
  ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','pax','var(--rental)']]],
  ['Insights',[['Online by City','building','city','var(--resv)',1],['Top Online Drivers','trophy','top','var(--warn)',1],['Reports','chart','reports','var(--accent)'],['Missed Requests','alert','missed','var(--bad)',1]]],
- ['Tools',[['Get OTP','key','otp','#6366F1'],['Fare Multiplier','gauge','fare','var(--auto)'],['Airport Multiplier','plane','airport','#06B6D4'],['Send Notification','send','','#EC4899']]]];
+ ['Tools',[['Get OTP','key','otp','#6366F1'],['Fare Multiplier','gauge','fare','var(--auto)'],['Airport Multiplier','plane','airport','#06B6D4'],['Send Notification','send','notify','#EC4899']]]];
 function drawHome(){$('#homeTiles').innerHTML=TILES.map(([h,items])=>`<div class="stl">${h}</div><div class="tgrid">${items.map(t=>{
   const act=/^verify/.test(t[2]||'')?`data-vtab="${t[2]}"`:t[2]?`data-go="${t[2]}"`:'data-stub';
   const bd=typeof t[4]==='function'?t[4]():t[4]?'NEW':'';
@@ -1879,6 +1895,25 @@ $('#paxIn').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
 $('#paxIn').onkeydown=e=>{if(e.key==='Enter')paxSearch($('#paxIn').value);};
 $('#paxGo').onclick=()=>paxSearch($('#paxIn').value);
 paxRender('Search for a passenger by mobile number');
+
+
+/* ---------- send notification ---------- */
+let ntAud='Passenger';
+const ntNote=()=>{$('#ntNote').textContent='This goes to every '+ntAud.toLowerCase()+' who has the TOK '+ntAud.toLowerCase()+' app installed.';};
+$('#ntTabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;ntAud=b.dataset.a;$('#ntTabs button').forEach(x=>x.classList.toggle('on',x===b));ntNote();};
+ntNote();
+$('#ntSend').onclick=()=>{
+  const title=$('#ntTitle').value.trim(),msg=$('#ntMsg').value.trim();
+  if(!title)return fsOpen({type:'error',title:'Title needed',desc:'Please enter a title for the notification.'});
+  if(!msg)return fsOpen({type:'error',title:'Message needed',desc:'Please enter the message to send.'});
+  fsOpen({type:'confirm',title:'Send to all '+ntAud.toLowerCase()+'s?',desc:'"'+title+'" will be sent to every '+ntAud.toLowerCase()+'. This cannot be undone.',btn:'Send',cancel:'Cancel',onOk:async()=>{
+    const payload={Title:title,Message:msg,ViewName:'TOKNotification',Tags:[ntAud==='Driver'?'AllTOKDrivers':'AllTOKPassengers']};
+    const b=$('#ntSend');b.disabled=true;
+    try{if(window.LIVE)await POST('/Notification/SendToTopic',payload);else await wait(600);
+      setTimeout(()=>fsOpen({type:'success',title:'Sent',desc:'The notification was sent to all '+ntAud.toLowerCase()+'s.',btn:'OK',onOk:()=>{$('#ntTitle').value='';$('#ntMsg').value='';}}),250);}
+    catch(e){setTimeout(()=>fsOpen({type:'error',title:'Could not send',desc:e.message}),250);}
+    b.disabled=false;}});
+};
 
 /* ---------- pull down to refresh ---------- */
 const REFRESH={
