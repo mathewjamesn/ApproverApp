@@ -21,10 +21,12 @@ export default function DriversScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Search states
-  const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Driver[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  // A full 10-digit number searches every driver (any status) through the API.
+  // Anything shorter filters the current tab by name, phone or vehicle number.
+  const isSearchActive = searchQuery.trim().length === 10;
 
   const fetchDrivers = async (tabToFetch: FilterTab = activeTab, isRefreshCall?: boolean) => {
     if (!isRefreshCall) {
@@ -57,7 +59,6 @@ export default function DriversScreen() {
   };
 
   const resetAndFetchDrivers = useCallback(() => {
-    setIsSearchActive(false);
     setSearchQuery('');
     setSearchResults([]);
     setIsSearching(false);
@@ -121,6 +122,11 @@ export default function DriversScreen() {
     }
   }, [searchQuery]);
 
+  const q = searchQuery.trim().toLowerCase();
+  const matches = (...vals: any[]) => !q || vals.join(' ').toLowerCase().includes(q);
+  const visibleDrivers = drivers.filter((d) => matches(d.firstName, d.lastName, d.mobileNumber, d.registrationNumber));
+  const visibleAddons = addonVehicles.filter((v) => matches(v.registrationNumber, v.vehicleMake, v.vehicleModel, v.category));
+
   const formatInitials = (name?: string) => {
     if (!name) return '??';
     return name.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
@@ -138,64 +144,39 @@ export default function DriversScreen() {
 
   return (
     <View style={styles.container}>
-      {isSearchActive ? (
-        <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
-          <View style={styles.searchBarContainer}>
-            <TextInput
-              style={{
-                flex: 1,
-                height: 40,
-                backgroundColor: colors.inputBg,
-                borderRadius: 20,
-                paddingHorizontal: 16,
-                fontSize: 14,
-                color: colors.textPrimary,
-                borderWidth: 1,
-                borderColor: colors.border,
-              }}
-              placeholder="Search by phone number..."
-              placeholderTextColor={colors.textSecondary}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              keyboardType="phone-pad"
-              onSubmitEditing={() => handleSearch()}
-              autoFocus
-            />
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setIsSearchActive(false);
-                setSearchQuery('');
-                setSearchResults([]);
-                fetchDrivers(activeTab);
-              }}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
+      <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerTitle}>Drivers</Text>
+            <Text style={styles.statsSubtitle}>
+              {isSearchActive
+                ? `${searchResults.length} found`
+                : activeTab === 'PENDING'
+                ? `${visibleDrivers.length} Pending Verifications`
+                : activeTab === 'REJECTED'
+                ? `${visibleDrivers.length} Rejected Drivers`
+                : `${visibleAddons.length} Add-On Requests`}
+            </Text>
           </View>
         </View>
-      ) : (
-        <View style={[styles.header, { paddingTop: insets.top || 16 }]}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.headerTitle}>Drivers</Text>
-              <Text style={styles.statsSubtitle}>
-                {activeTab === 'PENDING'
-                  ? `${drivers.length} Pending Verifications`
-                  : activeTab === 'REJECTED'
-                  ? `${drivers.length} Rejected Drivers`
-                  : `${addonVehicles.length} Add-On Requests`}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.searchButton}
-              onPress={() => setIsSearchActive(true)}
-            >
-              <Text style={styles.searchIconText}>🔍</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+        <TextInput
+          style={{
+            height: 44,
+            marginTop: 14,
+            backgroundColor: colors.inputBg,
+            borderRadius: 14,
+            paddingHorizontal: 16,
+            fontSize: 14,
+            color: colors.textPrimary,
+          }}
+          placeholder="🔍  Search any driver by name, phone or vehicle no."
+          placeholderTextColor={colors.textSecondary}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          returnKeyType="search"
+          onSubmitEditing={() => handleSearch()}
+        />
+      </View>
 
       {!isSearchActive && (
         <View style={styles.tabsContainer}>
@@ -313,7 +294,7 @@ export default function DriversScreen() {
             <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
           ) : activeTab === 'ADD_ON' ? (
             <>
-              {addonVehicles.map((vehicle, idx) => (
+              {visibleAddons.map((vehicle, idx) => (
                 <TouchableOpacity
                   key={vehicle.id || idx.toString()}
                   style={styles.driverCard}
@@ -342,7 +323,7 @@ export default function DriversScreen() {
                   </View>
                 </TouchableOpacity>
               ))}
-              {addonVehicles.length === 0 && (
+              {visibleAddons.length === 0 && (
                 <View style={{ alignItems: 'center', marginTop: 40 }}>
                   <Text style={{ color: colors.textSecondary }}>No Add-On requests found.</Text>
                 </View>
@@ -350,7 +331,7 @@ export default function DriversScreen() {
             </>
           ) : (
             <>
-              {drivers.map((driver, idx) => {
+              {visibleDrivers.map((driver, idx) => {
                 const displayName = (driver.firstName || '') + " " + (driver.lastName || '') || 'N/A';
                 const displayPhone = driver.mobileNumber || 'N/A';
                 const displayStatus = driver.status || activeTab;
@@ -422,7 +403,7 @@ export default function DriversScreen() {
                   </TouchableOpacity>
                 );
               })}
-              {drivers.length === 0 && (
+              {visibleDrivers.length === 0 && (
                 <View style={{ alignItems: 'center', marginTop: 40 }}>
                   <Text style={{ color: colors.textSecondary }}>
                     No drivers found in this category.

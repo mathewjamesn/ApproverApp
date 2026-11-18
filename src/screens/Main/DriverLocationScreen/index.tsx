@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { ActivityIndicator, Text, TouchableOpacity, View, Linking, Alert } from 'react-native';
+import { ActivityIndicator, Text, TouchableOpacity, View, Linking, Alert, LayoutAnimation, Platform, UIManager } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import axios from 'axios';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -7,13 +7,59 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { driverService, DriverLocation } from '../../../services/api/driverService';
 import { getStyles } from './styles';
 
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
 const REFRESH_INTERVAL_SECONDS = 8;
+
+interface RouteInfo {
+  distance: number; // in meters
+  duration: number; // in seconds
+}
 
 interface PassengerLocation {
   latitude: number;
   longitude: number;
   locationName: string;
 }
+
+const formatDistance = (meters?: number | null): string => {
+  if (meters === undefined || meters === null) return '--';
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+  return `${(meters / 1000).toFixed(1)} km`;
+};
+
+const formatDuration = (seconds?: number | null): string => {
+  if (seconds === undefined || seconds === null) return '--';
+  if (seconds < 60) {
+    return '< 1 min';
+  }
+  const totalMins = Math.round(seconds / 60);
+  if (totalMins < 60) {
+    return `${totalMins} min${totalMins > 1 ? 's' : ''}`;
+  }
+  const hours = Math.floor(totalMins / 60);
+  const remainingMins = totalMins % 60;
+  return remainingMins > 0 ? `${hours} hr ${remainingMins} min` : `${hours} hr`;
+};
+
+const calculateHaversineMeters = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+};
 
 const extractPassengerCoordinates = (address: any): PassengerLocation | null => {
   if (!address || typeof address !== 'object') return null;
@@ -82,6 +128,8 @@ export default function DriverLocationScreen({ route, navigation }: any) {
   const [errorMessage, setErrorMessage] = useState('');
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL_SECONDS);
   const [routeCoordinates, setRouteCoordinates] = useState<Array<{ latitude: number; longitude: number }>>([]);
+  const [routeInfo, setRouteInfo] = useState<RouteInfo | null>(null);
+  const [isCardVisible, setIsCardVisible] = useState(false);
 
   const locationRef = useRef<DriverLocation | null>(null);
   locationRef.current = location;
@@ -93,6 +141,8 @@ export default function DriverLocationScreen({ route, navigation }: any) {
       const latLonUrl = `https://pikmecontainerapp.politemushroom-8a010def.southindia.azurecontainerapps.io/route/v1/driving/${driverLat},${driverLong};${pickupLat},${pickupLong}?overview=full&geometries=geojson`;
 
       let extractedCoords: Array<{ latitude: number; longitude: number }> = [];
+      let distance: number | undefined;
+      let duration: number | undefined;
 
       try {
         console.log('[Route API Request]', lonLatUrl);
@@ -100,11 +150,15 @@ export default function DriverLocationScreen({ route, navigation }: any) {
         console.log('[Route API Response]', res.data);
 
         const routeData = res.data?.routes?.[0];
-        if (routeData?.geometry?.coordinates && Array.isArray(routeData.geometry.coordinates)) {
-          extractedCoords = routeData.geometry.coordinates.map((pt: [number, number]) => ({
-            latitude: pt[1],
-            longitude: pt[0],
-          }));
+        if (routeData) {
+          distance = routeData.distance ?? routeData.legs?.[0]?.distance;
+          duration = routeData.duration ?? routeData.legs?.[0]?.duration;
+          if (routeData?.geometry?.coordinates && Array.isArray(routeData.geometry.coordinates)) {
+            extractedCoords = routeData.geometry.coordinates.map((pt: [number, number]) => ({
+              latitude: pt[1],
+              longitude: pt[0],
+            }));
+          }
         }
       } catch (err: any) {
         console.log('[Route API Error]', err?.response?.data || err?.message || err);
@@ -114,11 +168,15 @@ export default function DriverLocationScreen({ route, navigation }: any) {
           console.log('[Route API Response (fallback)]', fallbackRes.data);
 
           const routeData = fallbackRes.data?.routes?.[0];
-          if (routeData?.geometry?.coordinates && Array.isArray(routeData.geometry.coordinates)) {
-            extractedCoords = routeData.geometry.coordinates.map((pt: [number, number]) => ({
-              latitude: pt[1],
-              longitude: pt[0],
-            }));
+          if (routeData) {
+            distance = routeData.distance ?? routeData.legs?.[0]?.distance;
+            duration = routeData.duration ?? routeData.legs?.[0]?.duration;
+            if (routeData?.geometry?.coordinates && Array.isArray(routeData.geometry.coordinates)) {
+              extractedCoords = routeData.geometry.coordinates.map((pt: [number, number]) => ({
+                latitude: pt[1],
+                longitude: pt[0],
+              }));
+            }
           }
         } catch (fallbackErr: any) {
           console.log(
@@ -137,13 +195,31 @@ export default function DriverLocationScreen({ route, navigation }: any) {
       }
 
       setRouteCoordinates(extractedCoords);
+
+      // If distance or duration is 0 or undefined, calculate from coordinates
+      if ((distance === undefined || distance === 0) && driverLat && pickupLat) {
+        const haversineDist = calculateHaversineMeters(driverLat, driverLong, pickupLat, pickupLong);
+        if (haversineDist > 20) {
+          distance = haversineDist;
+          duration = duration && duration > 0 ? duration : Math.round(haversineDist / 7); // ~25 km/h driving speed
+        }
+      }
+
+      if (distance !== undefined || duration !== undefined) {
+        setRouteInfo({
+          distance: distance ?? 0,
+          duration: duration ?? 0,
+        });
+      }
     },
     []
   );
 
   const fitMapToPoints = useCallback(
-    (driverLoc: DriverLocation) => {
+    (driverLoc: DriverLocation, cardVisible = isCardVisible) => {
       if (!mapRef.current) return;
+
+      const bottomPadding = cardVisible ? 280 : 80;
 
       if (passengerCoords) {
         mapRef.current.fitToCoordinates(
@@ -152,7 +228,7 @@ export default function DriverLocationScreen({ route, navigation }: any) {
             { latitude: passengerCoords.latitude, longitude: passengerCoords.longitude },
           ],
           {
-            edgePadding: { top: 80, right: 80, bottom: 280, left: 80 },
+            edgePadding: { top: 80, right: 80, bottom: bottomPadding, left: 80 },
             animated: true,
           }
         );
@@ -168,8 +244,19 @@ export default function DriverLocationScreen({ route, navigation }: any) {
         );
       }
     },
-    [passengerCoords]
+    [passengerCoords, isCardVisible]
   );
+
+  const handleToggleCard = useCallback(() => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsCardVisible((prev) => {
+      const next = !prev;
+      if (locationRef.current) {
+        fitMapToPoints(locationRef.current, next);
+      }
+      return next;
+    });
+  }, [fitMapToPoints]);
 
   const fetchLocation = useCallback(
     async (isManualRefresh = false) => {
@@ -388,60 +475,117 @@ export default function DriverLocationScreen({ route, navigation }: any) {
             )}
           </MapView>
 
-          <View style={[styles.locationCard, { marginBottom: (insets.bottom || 0) + 12 }]}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.locationTitle}>Live Tracking</Text>
-              <View style={styles.badgesRow}>
-                {location.status ? (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: isOnline ? colors.success + '20' : colors.textSecondary + '20',
-                        borderColor: isOnline ? colors.success : colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    <Text
+          {/* Floating ETA & Distance Pill on Map */}
+          {routeInfo && (
+            <View style={styles.floatingEtaPill}>
+              <Text style={styles.floatingEtaText}>
+                ⏱️ {formatDuration(routeInfo.duration)}  •  🚗 {formatDistance(routeInfo.distance)}
+              </Text>
+            </View>
+          )}
+
+          {/* Floating Icon to Hide/Show Details Screen */}
+          <TouchableOpacity
+            style={styles.floatingToggleFab}
+            onPress={handleToggleCard}
+            activeOpacity={0.8}
+          >
+            <Text style={{ fontSize: 18 }}>{isCardVisible ? '⌄' : '🚗'}</Text>
+          </TouchableOpacity>
+
+          {/* Floating Bottom Pill when details card is hidden */}
+          {!isCardVisible && (
+            <TouchableOpacity
+              style={[styles.floatingBottomPill, { bottom: (insets.bottom || 0) + 20 }]}
+              onPress={handleToggleCard}
+              activeOpacity={0.8}
+            >
+              <Text style={{ fontSize: 18 }}>🚗</Text>
+              <Text style={styles.floatingBottomPillText}>Show Details</Text>
+              {routeInfo ? (
+                <Text style={{ fontSize: 12, color: colors.textSecondary, fontWeight: '600' }}>
+                  • {formatDuration(routeInfo.duration)} ({formatDistance(routeInfo.distance)})
+                </Text>
+              ) : null}
+            </TouchableOpacity>
+          )}
+
+          {isCardVisible && (
+            <View style={[styles.locationCard, { marginBottom: (insets.bottom || 0) + 12 }]}>
+              {/* Centered visible hide handle/button */}
+              <TouchableOpacity
+                style={styles.centerHideButton}
+                onPress={handleToggleCard}
+                activeOpacity={0.7}
+              >
+                <View style={styles.centerDragBar} />
+                <View style={styles.centerHidePill}>
+                  <Text style={styles.centerHideIcon}>⌄</Text>
+                  <Text style={styles.centerHideText}>Hide</Text>
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.cardHeader}>
+                <Text style={styles.locationTitle}>Live Tracking</Text>
+                <View style={styles.badgesRow}>
+                  {location.status ? (
+                    <View
                       style={[
-                        styles.statusBadgeText,
-                        { color: isOnline ? colors.success : colors.textSecondary },
+                        styles.statusBadge,
+                        {
+                          backgroundColor: isOnline ? colors.success + '20' : colors.textSecondary + '20',
+                          borderColor: isOnline ? colors.success : colors.textSecondary,
+                        },
                       ]}
                     >
-                      ● {location.status}
-                    </Text>
-                  </View>
-                ) : null}
+                      <Text
+                        style={[
+                          styles.statusBadgeText,
+                          { color: isOnline ? colors.success : colors.textSecondary },
+                        ]}
+                      >
+                        ● {location.status}
+                      </Text>
+                    </View>
+                  ) : null}
 
-                {location.isReadyForRide && (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: colors.info + '20',
-                        borderColor: colors.info,
-                      },
-                    ]}
-                  >
-                    <Text style={[styles.statusBadgeText, { color: colors.info }]}>Ready</Text>
-                  </View>
-                )}
+                  {location.isReadyForRide && (
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor: colors.info + '20',
+                          borderColor: colors.info,
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.statusBadgeText, { color: colors.info }]}>Ready</Text>
+                    </View>
+                  )}
 
-                {location.isBusy && (
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {
-                        backgroundColor: '#F59E0B20',
-                        borderColor: '#F59E0B',
-                      },
-                    ]}
+                  {location.isBusy && (
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        {
+                          backgroundColor: '#F59E0B20',
+                          borderColor: '#F59E0B',
+                        },
+                      ]}
+                    >
+                      <Text style={[styles.statusBadgeText, { color: '#F59E0B' }]}>Busy</Text>
+                    </View>
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.cardHeaderToggle}
+                    onPress={handleToggleCard}
+                    activeOpacity={0.7}
                   >
-                    <Text style={[styles.statusBadgeText, { color: '#F59E0B' }]}>Busy</Text>
-                  </View>
-                )}
+                    <Text style={styles.cardHeaderToggleText}>⌄ Hide</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
 
             {/* Live 8-second auto-refresh countdown indicator */}
             <View style={styles.timerCardRow}>
@@ -480,6 +624,21 @@ export default function DriverLocationScreen({ route, navigation }: any) {
                 <Text style={styles.passengerAddressText} numberOfLines={2}>
                   {passengerCoords.locationName}
                 </Text>
+              </View>
+            )}
+
+            {/* Distance and Time to Reach Location */}
+            {routeInfo && (
+              <View style={styles.etaContainer}>
+                <View style={styles.etaItem}>
+                  <Text style={styles.etaLabel}>Distance to Location</Text>
+                  <Text style={styles.etaValue}>🚗 {formatDistance(routeInfo.distance)}</Text>
+                </View>
+                <View style={styles.etaDivider} />
+                <View style={styles.etaItem}>
+                  <Text style={styles.etaLabel}>Time to Reach</Text>
+                  <Text style={styles.etaValue}>⏱️ {formatDuration(routeInfo.duration)}</Text>
+                </View>
               </View>
             )}
 
@@ -526,11 +685,12 @@ export default function DriverLocationScreen({ route, navigation }: any) {
               >
                 <Text style={{ fontSize: 15 }}>🗺️</Text>
                 <Text style={styles.cardActionPrimaryText}>
-                  {passengerCoords ? 'Route in Maps' : 'Open in Maps'}
+                  {'Open in Maps'}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
+          )}
         </View>
       ) : (
         <View style={styles.centerContent}>

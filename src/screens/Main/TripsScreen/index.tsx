@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, Linking, StatusBar, RefreshControl } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, FlatList, ActivityIndicator, Keyboard, StatusBar, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
@@ -9,11 +9,13 @@ import {
   fetchTripsByDriver,
   fetchTripsByPassenger,
 } from '../../../services/api/tripsApi';
+import TripCard from '../../../components/common/TripCard';
+import { getEffectiveTripStatus, getTripKind, TripKind } from '../../../utils/tripHelpers';
 
 type TabOption = 'recent' | 'driver' | 'passenger';
 
 const STATUS_FILTERS: { label: string, value: string }[] = [
-  { label: 'All Trips', value: 'all' },
+  { label: 'All', value: 'all' },
   { label: 'Accepted', value: 'DriverAccepted' },
   { label: 'Completed', value: 'PaymentComplete' },
   { label: 'Started', value: 'RideStarted' },
@@ -22,71 +24,33 @@ const STATUS_FILTERS: { label: string, value: string }[] = [
   { label: 'Rejected', value: 'Rejected' },
 ];
 
-const isWithin24Hours = (dateInput?: string | null): boolean => {
-  if (!dateInput) return false;
-  const timeMs = new Date(dateInput).getTime();
-  if (isNaN(timeMs)) return false;
-  return (Date.now() - timeMs) <= 24 * 60 * 60 * 1000;
-};
+const TYPE_FILTERS: { label: string, value: 'all' | TripKind }[] = [
+  { label: 'All types', value: 'all' },
+  { label: '🚕 Normal', value: 'Normal' },
+  { label: '⏱️ Rental', value: 'Rental' },
+  { label: '📅 Reservation', value: 'Reservation' },
+];
 
-const getEffectiveTripStatus = (trip: Trip): string => {
-  const status = (trip.tripStatus || '').trim();
-  if (status === '') {
-    const createdDate = trip.createdOn || trip.tripStartDate;
-    if (isWithin24Hours(createdDate)) {
-      return 'DriverAccepted';
-    }
-  }
-  return status || 'Unknown';
-};
-
-const isCancelledTrip = (status?: string): boolean => {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s.includes('cancel') || s.includes('reject');
-};
-
-const getCancelledDate = (trip: Trip): string | null => {
-  return (
-    trip.tripCancelledDate ||
-    (trip as any).cancelledDate ||
-    (trip as any).cancelledOn ||
-    (trip as any).cancellationTime ||
-    null
-  );
-};
-
-const getEffectiveFare = (trip: Trip): number => {
-  if (trip.finalFareAmount && trip.finalFareAmount > 0) {
-    return trip.finalFareAmount;
-  }
-  return trip.initialFareAmount || (trip as any).estimatedFareAmount || (trip as any).tripFare || (trip as any).totalFare || 0;
-};
-
-const formatTimeDisplay = (dateStr?: string | null): string => {
-  if (!dateStr) return '--';
-  if (dateStr.includes('T') || dateStr.includes('-')) {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleString();
-    }
-  }
-  return dateStr;
-};
-
-export default function TripsScreen({ navigation }: any) {
+export default function TripsScreen({ route }: any) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const styles = getStyles(colors);
 
   const [activeTab, setActiveTab] = useState<TabOption>('recent');
-  const [activeStatus, setActiveStatus] = useState<string>('all');
+  const [activeStatus, setActiveStatus] = useState<string>(route?.params?.initialStatus || 'all');
+  const [activeType, setActiveType] = useState<'all' | TripKind>('all');
   const [searchPhone, setSearchPhone] = useState('');
 
   const [trips, setTrips] = useState<Trip[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [stats, setStats] = useState({ total: 0 });
+
+  // Allow other screens (e.g. Home tiles) to open Trips with a status preselected
+  useEffect(() => {
+    if (route?.params?.initialStatus) {
+      setActiveStatus(route.params.initialStatus);
+    }
+  }, [route?.params?.initialStatus]);
 
   const loadTripsData = async (queryToSearch?: string, isRefreshCall?: boolean) => {
     Keyboard.dismiss();
@@ -108,7 +72,6 @@ export default function TripsScreen({ navigation }: any) {
         }
       }
       setTrips(data);
-      setStats({ total: data.length });
     } catch (e) {
       console.log(e);
     } finally {
@@ -137,13 +100,13 @@ export default function TripsScreen({ navigation }: any) {
         return () => clearTimeout(timer);
       } else {
         setTrips([]);
-        setStats({ total: 0 });
       }
     }
   }, [activeTab, searchPhone]);
 
   const filteredTrips = trips.filter(trip => {
     const effectiveStatus = getEffectiveTripStatus(trip);
+    if (activeType !== 'all' && getTripKind(trip) !== activeType) return false;
     if (activeStatus === 'all') return true;
     if (activeStatus === 'DriverAccepted' || activeStatus === 'Accepted') {
       return (
@@ -158,153 +121,52 @@ export default function TripsScreen({ navigation }: any) {
     return effectiveStatus === activeStatus;
   });
 
-  const formatStatusDisplay = (status?: string) => {
-    return status || 'Unknown';
-  };
-
-  const getStatusColor = (status?: string) => {
-    if (!status) return colors.textSecondary;
-    const s = status.toLowerCase();
-    if (s.includes('complete') || s === 'paymentcomplete') {
-      return colors.success; // Green (#10B981)
-    }
-    if (s.includes('driver') && s.includes('cancel')) {
-      return '#E11D48'; // Vivid Red / Rose
-    }
-    if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
-      return '#F97316'; // Amber / Orange
-    }
-    if (s.includes('cancel') || s.includes('reject')) {
-      return colors.danger;
-    }
-    if (s.includes('start')) {
-      return colors.info;
-    }
-    if (s.includes('accept')) {
-      return colors.accent;
-    }
-    return colors.textSecondary;
-  };
-
-  const renderTripCard = ({ item }: { item: Trip }) => {
-    const effectiveStatus = getEffectiveTripStatus(item);
-    const statusColor = getStatusColor(effectiveStatus);
-    const isCancelled = isCancelledTrip(effectiveStatus);
-    const cancelledDate = getCancelledDate(item);
-    const fareAmount = getEffectiveFare(item);
-    const pickupDistance = item.totalPickupDistance ?? (item as any).pickupDistance ?? (item as any).driverToPassengerDistance;
-
-    return (
-      <TouchableOpacity
-        style={styles.tripCard}
-        onPress={() => navigation.navigate('TripDetails', { tripData: item })}
-      >
-        <View style={styles.cardHeaderRow}>
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + '1A', borderColor: statusColor + '33', borderWidth: 1 }]}>
-            <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(effectiveStatus)}</Text>
-          </View>
-          <Text style={styles.fareText}>₹{fareAmount.toFixed(2)}</Text>
-        </View>
-
-        <View style={styles.routeContainer}>
-          <Text>🔵</Text>
-          <Text style={styles.locText} numberOfLines={1}>{item.fromLocation}</Text>
-        </View>
-        <View style={{ marginLeft: 22 }}>
-          <Text style={{ color: colors.border, marginTop: -6, marginBottom: -6 }}>|</Text>
-        </View>
-        <View style={styles.routeContainer}>
-          <Text>🔴</Text>
-          <Text style={styles.locText} numberOfLines={1}>{item.toLocation}</Text>
-        </View>
-
-        {/* Route Info: Distance from Driver to Passenger Current Address */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
-          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
-            🚕 Pick-Up Distance: {(pickupDistance !== undefined && pickupDistance !== null) ? `${pickupDistance} km` : 'N/A'}
-          </Text>
-        </View>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 6, paddingHorizontal: 4 }}>
-        <Text style={{ fontSize: 12, color: colors.primary, fontWeight: '600' }}>
-            🚕 Final Distance: {item?.finalDistanceInKilometers !== undefined && item?.finalDistanceInKilometers !== null ? `${item?.finalDistanceInKilometers} km` : 'N/A'}
-          </Text>
-        </View>
-
-        <View style={styles.cardFooterRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.dateText}>
-              Accepted: {item.tripAcceptDate ? formatTimeDisplay(item.tripAcceptDate) : formatTimeDisplay(item.createdOn)}
-            </Text>
-            {isCancelled ? (
-              <Text style={[styles.dateText, { color: colors.danger, marginTop: 2, fontWeight: '600' }]}>
-                Cancelled: {cancelledDate ? formatTimeDisplay(cancelledDate) : 'Cancelled'}
-              </Text>
-            ) : (
-              item.tripStartDate ? (
-                <Text style={[styles.dateText, { color: colors.info, marginTop: 2 }]}>
-                  Started: {formatTimeDisplay(item.tripStartDate)}
-                </Text>
-              ) : null
-            )}
-          </View>
-        </View>
-
+  const renderPills = (
+    data: { label: string; value: string }[],
+    active: string,
+    onSelect: (v: any) => void,
+  ) => (
+    <FlatList
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      data={data}
+      contentContainerStyle={styles.filterScroll}
+      keyExtractor={(item) => item.value}
+      renderItem={({ item }) => (
         <TouchableOpacity
-          style={styles.routeInfoButton}
-          onPress={() => {
-            const fromLat = item.fromAddress?.latitude;
-            const fromLng = item.fromAddress?.longitude;
-            const toLat = item.toAddress?.latitude;
-            const toLng = item.toAddress?.longitude;
-            const origin = (fromLat && fromLng) ? `${fromLat},${fromLng}` : encodeURIComponent(item.fromLocation || '');
-            const dest = (toLat && toLng) ? `${toLat},${toLng}` : encodeURIComponent(item.toLocation || '');
-            const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}&travelmode=driving`;
-            Linking.openURL(url);
-          }}
+          style={[styles.filterPill, active === item.value && styles.filterPillActive]}
+          onPress={() => onSelect(item.value)}
         >
-          <Text style={styles.routeInfoButtonText}>🗺️  Route Info</Text>
+          <Text style={[styles.filterText, active === item.value && styles.filterTextActive]}>
+            {item.label}
+          </Text>
         </TouchableOpacity>
-      </TouchableOpacity>
-    );
-  };
+      )}
+    />
+  );
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={colors.primary} />
       <View style={[styles.header, { paddingTop: (insets.top || 0) + 16 }]}>
-        <Text style={styles.headerTitle}>Trips Monitor</Text>
+        <Text style={styles.headerTitle}>Trips</Text>
         <Text style={styles.statsSubtitle}>
-          {(() => {
-            const currentFilter = STATUS_FILTERS.find(f => f.value === activeStatus);
-            const label = currentFilter ? currentFilter.label : 'All Trips';
-            if (activeStatus === 'all') {
-              return `Total Trips: ${filteredTrips.length}`;
-            }
-            return `Total ${label} Trips: ${filteredTrips.length}`;
-          })()}
+          {filteredTrips.length} trip{filteredTrips.length === 1 ? '' : 's'}
         </Text>
       </View>
 
       <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'recent' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('recent')}
-        >
-          <Text style={[styles.tabText, activeTab === 'recent' && styles.tabTextActive]}>Recent</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'driver' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('driver')}
-        >
-          <Text style={[styles.tabText, activeTab === 'driver' && styles.tabTextActive]}>By Driver</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabButton, activeTab === 'passenger' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('passenger')}
-        >
-          <Text style={[styles.tabText, activeTab === 'passenger' && styles.tabTextActive]}>By Passenger</Text>
-        </TouchableOpacity>
+        {(['recent', 'driver', 'passenger'] as TabOption[]).map((tab) => (
+          <TouchableOpacity
+            key={tab}
+            style={[styles.tabButton, activeTab === tab && styles.tabButtonActive]}
+            onPress={() => setActiveTab(tab)}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {tab === 'recent' ? 'Recent' : tab === 'driver' ? 'By Driver' : 'By Passenger'}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {(activeTab === 'driver' || activeTab === 'passenger') && (
@@ -324,23 +186,8 @@ export default function TripsScreen({ navigation }: any) {
       )}
 
       <View>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          data={STATUS_FILTERS}
-          contentContainerStyle={styles.filterScroll}
-          keyExtractor={(item) => item.value}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[styles.filterPill, activeStatus === item.value && styles.filterPillActive]}
-              onPress={() => setActiveStatus(item.value)}
-            >
-              <Text style={[styles.filterText, activeStatus === item.value && styles.filterTextActive]}>
-                {item.label}
-              </Text>
-            </TouchableOpacity>
-          )}
-        />
+        {renderPills(TYPE_FILTERS, activeType, setActiveType)}
+        <View style={{ marginTop: -8 }}>{renderPills(STATUS_FILTERS, activeStatus, setActiveStatus)}</View>
       </View>
 
       {isLoading ? (
@@ -350,8 +197,8 @@ export default function TripsScreen({ navigation }: any) {
       ) : (
         <FlatList
           data={filteredTrips}
-          keyExtractor={(item) => item.id}
-          renderItem={renderTripCard}
+          keyExtractor={(item, index) => item.id || String(index)}
+          renderItem={({ item }) => <TripCard trip={item} />}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={

@@ -23,6 +23,12 @@ import SendNotificationScreen from '../screens/Main/SendNotificationScreen';
 import AddOnDetailsScreen from '../screens/Main/AddOnDetailsScreen';
 import DriverUpdateScreen from '../screens/Main/DriverUpdateScreen';
 import DriverViewDetailsScreen from '../screens/Main/DriverViewDetailsScreen';
+import DriverTripsScreen from '../screens/Main/DriverTripsScreen';
+import ReportsScreen from '../screens/Main/ReportsScreen';
+import OnlineDriversByCityScreen from '../screens/Main/OnlineDriversByCityScreen';
+import TopOnlineDriversScreen from '../screens/Main/TopOnlineDriversScreen';
+import MissedRequestsScreen from '../screens/Main/MissedRequestsScreen';
+import LiveMapScreen from '../screens/Main/LiveMapScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { useEnvironment } from '../context/EnvironmentContext';
 
@@ -38,11 +44,19 @@ function MainTabs() {
         headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.card,
-          borderTopColor: colors.border,
+          borderTopWidth: 0,
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
           height: 85,
           paddingBottom: 25,
           paddingTop: 10,
+          shadowColor: colors.cardShadow,
+          shadowOffset: { width: 0, height: -4 },
+          shadowOpacity: 0.08,
+          shadowRadius: 12,
+          elevation: 12,
         },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textSecondary,
       }}
@@ -135,6 +149,12 @@ export default function AppNavigator() {
       <Stack.Screen name="AddOnDetails" component={AddOnDetailsScreen} />
       <Stack.Screen name="DriverUpdate" component={DriverUpdateScreen} />
       <Stack.Screen name="DriverViewDetails" component={DriverViewDetailsScreen} />
+      <Stack.Screen name="DriverTrips" component={DriverTripsScreen} />
+      <Stack.Screen name="Reports" component={ReportsScreen} />
+      <Stack.Screen name="OnlineDriversByCity" component={OnlineDriversByCityScreen} />
+      <Stack.Screen name="TopOnlineDrivers" component={TopOnlineDriversScreen} />
+      <Stack.Screen name="MissedRequests" component={MissedRequestsScreen} />
+      <Stack.Screen name="LiveMap" component={LiveMapScreen} />
     </Stack.Navigator>
   );
 }

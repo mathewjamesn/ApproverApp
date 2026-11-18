@@ -58,8 +58,7 @@ export default function MenuScreen({ navigation }: any) {
             <MenuItem styles={styles} icon="🔓" title="Get OTP" onPress={() => navigation.navigate('GetOTP' as never)} />
             <MenuItem styles={styles} icon="🔀" title="Fare Multiplier" onPress={() => navigation.navigate('FareMultiplier' as never)} />
             <MenuItem styles={styles} icon="🛫" title="Airport Fare Multiplier" onPress={() => navigation.navigate('AirportFareMultiplier' as never)} />
-            <MenuItem styles={styles} icon="📍" title="Rate Per KM" />
-            <MenuItem styles={styles} icon="📊" title="App Statistics" isLast={true} />
+            <MenuItem styles={styles} icon="📊" title="Reports & Statistics" isLast={true} onPress={() => navigation.navigate('Reports' as never)} />
          </View>
 
          <View style={styles.card}>

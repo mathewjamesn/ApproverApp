@@ -54,6 +54,19 @@ export interface TopOnlineDriver {
   [key: string]: any;
 }
 
+export interface MissedRequest {
+  id?: string;
+  fromLocation?: string;
+  toLocation?: string;
+  passengerName?: string;
+  passengerMobileNumber?: string;
+  requestedOn?: string;
+  vehicleCategory?: string;
+  reason?: string;
+  driversNotified?: number;
+  [key: string]: any;
+}
+
 export const reportsService = {
   getRecentlyCompletedTripsCount: async (): Promise<number> => {
     try {
@@ -140,5 +153,23 @@ export const reportsService = {
       console.log(`Error fetching availability status for ${city}/${vehicleType}/${status}:`, error);
       return 0;
     }
-  }
+  },
+
+  /**
+   * Ride requests that no driver accepted. The backend route is a placeholder (see
+   * ENDPOINTS.REPORTS.MISSED_REQUESTS); returns [] when the route is not available.
+   */
+  getMissedRequests: async (days: number = 1): Promise<MissedRequest[]> => {
+    try {
+      const response = await apiClient.get(`${ENDPOINTS.REPORTS.MISSED_REQUESTS}${days}`);
+      const data = response.data;
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.requests)) return data.requests;
+      if (data && Array.isArray(data.data)) return data.data;
+      return [];
+    } catch (error) {
+      console.log('Error fetching missed requests:', error);
+      throw error;
+    }
+  },
 };

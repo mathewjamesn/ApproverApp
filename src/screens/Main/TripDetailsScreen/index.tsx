@@ -4,6 +4,21 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../theme/ThemeContext';
 import { getStyles } from './styles';
+import DriverPhoneMenu from '../../../components/common/DriverPhoneMenu';
+import {
+  TRIP_KIND_META,
+  buildTrackDriverParams,
+  formatTimeDisplay,
+  getCancelledDate,
+  getEffectiveFare,
+  getEffectiveTripStatus,
+  getRentalPackage,
+  getReservationTime,
+  getStatusColor as resolveStatusColor,
+  getTripKind,
+  isAcceptedTrip,
+  isCancelledTrip,
+} from '../../../utils/tripHelpers';
 
 const CopyableId = ({ value, textStyle }: { value?: string, textStyle: any }) => {
   if (!value) return <Text style={textStyle}>--</Text>;
@@ -22,64 +37,6 @@ const CopyableId = ({ value, textStyle }: { value?: string, textStyle: any }) =>
       </TouchableOpacity>
     </View>
   );
-};
-
-const isWithin24Hours = (dateInput?: string | null): boolean => {
-  if (!dateInput) return false;
-  const timeMs = new Date(dateInput).getTime();
-  if (isNaN(timeMs)) return false;
-  return (Date.now() - timeMs) <= 24 * 60 * 60 * 1000;
-};
-
-const getEffectiveTripStatus = (trip: any): string => {
-  const status = (trip.tripStatus || '').trim();
-  if (status === '') {
-    const createdDate = trip.createdOn || trip.tripStartDate;
-    if (isWithin24Hours(createdDate)) {
-      return 'DriverAccepted';
-    }
-  }
-  return status || 'Unknown';
-};
-
-const isCancelledTrip = (status?: string): boolean => {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s.includes('cancel') || s.includes('reject');
-};
-
-const isAcceptedTrip = (status?: string): boolean => {
-  if (!status) return false;
-  const s = status.toLowerCase();
-  return s.includes('accept');
-};
-
-const getCancelledDate = (trip: any): string | null => {
-  return (
-    trip.tripCancelledDate ||
-    trip.cancelledDate ||
-    trip.cancelledOn ||
-    trip.cancellationTime ||
-    null
-  );
-};
-
-const getEffectiveFare = (trip: any): number => {
-  if (trip.finalFareAmount && trip.finalFareAmount > 0) {
-    return trip.finalFareAmount;
-  }
-  return trip.initialFareAmount || trip.estimatedFareAmount || trip.tripFare || trip.totalFare || 0;
-};
-
-const formatTimeDisplay = (dateStr?: string | null): string => {
-  if (!dateStr) return '--';
-  if (dateStr.includes('T') || dateStr.includes('-')) {
-    const d = new Date(dateStr);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleString();
-    }
-  }
-  return dateStr;
 };
 
 export default function TripDetailsScreen({ route, navigation }: any) {
@@ -105,50 +62,18 @@ export default function TripDetailsScreen({ route, navigation }: any) {
       return;
     }
 
-    (navigation.navigate as any)('DriverLocation', {
-      driverName: tripData.driverName || 'Driver',
-      phoneNumber: rawPhone,
-      title: 'Track Driver Location',
-      tripData: tripData,
-      passengerFromAddress: tripData.passengerFromAddress || (tripData.fromAddress ? {
-        geoLocation: {
-          latitude: tripData.fromAddress.latitude,
-          longitude: tripData.fromAddress.longitude,
-        },
-        locationName: tripData.fromLocation,
-      } : undefined),
-    });
+    (navigation.navigate as any)('DriverLocation', buildTrackDriverParams(tripData));
   };
 
   const formatStatusDisplay = (status?: string) => {
     return status || 'Unknown';
   };
 
-  const getStatusColor = (status?: string) => {
-    if (!status) return colors.textSecondary;
-    const s = status.toLowerCase();
-    if (s.includes('complete') || s === 'paymentcomplete') {
-      return colors.success;
-    }
-    if (s.includes('driver') && s.includes('cancel')) {
-      return '#E11D48'; // Vivid Red / Rose
-    }
-    if ((s.includes('passenger') || s.includes('customer')) && s.includes('cancel')) {
-      return '#F97316'; // Amber / Orange
-    }
-    if (s.includes('cancel') || s.includes('reject')) {
-      return colors.danger;
-    }
-    if (s.includes('start')) {
-      return colors.info;
-    }
-    if (s.includes('accept')) {
-      return colors.accent;
-    }
-    return colors.textSecondary;
-  };
-
-  const statusColor = getStatusColor(effectiveStatus);
+  const statusColor = resolveStatusColor(colors, effectiveStatus);
+  const kind = getTripKind(tripData);
+  const kindMeta = TRIP_KIND_META[kind];
+  const rentalPackage = getRentalPackage(tripData);
+  const reservationTime = getReservationTime(tripData);
 
   return (
     <View style={styles.container}>
@@ -181,6 +106,24 @@ export default function TripDetailsScreen({ route, navigation }: any) {
               <Text style={[styles.statusText, { color: statusColor }]}>{formatStatusDisplay(effectiveStatus)}</Text>
             </View>
           </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Trip Type</Text>
+            <View style={[styles.statusBadge, { backgroundColor: kindMeta.color + '1A', borderColor: kindMeta.color + '33', borderWidth: 1 }]}>
+              <Text style={[styles.statusText, { color: kindMeta.color }]}>{kindMeta.icon} {kind}</Text>
+            </View>
+          </View>
+          {kind === 'Rental' && rentalPackage ? (
+            <View style={styles.row}>
+              <Text style={styles.label}>Rental Package</Text>
+              <Text style={styles.value}>{rentalPackage}</Text>
+            </View>
+          ) : null}
+          {kind === 'Reservation' && reservationTime ? (
+            <View style={styles.row}>
+              <Text style={styles.label}>Reserved Pickup</Text>
+              <Text style={styles.value}>{formatTimeDisplay(reservationTime)}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={styles.section}>
@@ -281,7 +224,12 @@ export default function TripDetailsScreen({ route, navigation }: any) {
           <View style={styles.row}>
             <Text style={styles.label}>Phone</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Text style={styles.value}>{tripData.driverMobileNumber || '--'}</Text>
+              <DriverPhoneMenu
+                pill
+                phone={tripData.driverMobileNumber}
+                driverName={tripData.driverName}
+                textStyle={styles.value}
+              />
               {tripData.driverMobileNumber && tripData.driverMobileNumber !== '--' && (
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   <TouchableOpacity

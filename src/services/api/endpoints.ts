@@ -11,7 +11,7 @@ export const ENDPOINTS = {
     GET_REJECTED: '/CustomerCare/GetDrivers/Rejected',
     GET_BY_MOBILE: '/CustomerCare/GetByMobileNumber/',
     GET_DETAILS: '/Driver/Get/',
-    GET_LOCATION_DETAILS: '/Driver/',
+    GET_LOCATION_DETAILS: '/CustomerCare/',
     GET_DOCUMENTS: '/CustomerCare/DriverDocuments/',
     BLOCK: '/CustomerCare/BlockAndUnBlockDriver/',
     DELETE: '/Driver/Delete/',
@@ -50,6 +50,8 @@ export const ENDPOINTS = {
     GET_DRIVER_REGISTRATION_SUMMARY: '/Reports/GetDriverRegistrationSummary',
     TOP_ONLINE_DRIVERS: '/Reports/TopOnlineDrivers',
     GET_DRIVERS_BY_AVAILABILITY: '/Reports/GetDriversByAvailabilityStatus/',
+    // TODO(backend): confirm the real route. Used by the Missed Requests screen.
+    MISSED_REQUESTS: '/Reports/GetMissedRideRequests/',
   },
   NOTIFICATION: {
     SEND_NOTIFICATION: '/Notification/SendNotification/false',
