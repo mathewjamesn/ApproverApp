@@ -38,6 +38,8 @@ jobs:
       - name: Build release APK
         working-directory: android
         # Commits made on Windows don't carry the executable bit, so set it here.
+        env:
+          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon

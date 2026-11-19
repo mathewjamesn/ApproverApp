@@ -160,6 +160,10 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .tl .p i.e{background:var(--bad);border-color:var(--bad)}
 .tl .t div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl .t div+div{margin-top:12px}
+.ttimes{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:10px;padding:9px 10px;border-radius:10px;background:var(--chip)}
+.ttimes span{display:flex;flex-direction:column;min-width:0}
+.ttimes small{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.ttimes b{font-size:12px;font-weight:700;color:var(--ink)}
 .tmeta{font-size:12px;margin-top:10px;padding:7px 10px;border-radius:10px;background:var(--chip);display:flex;gap:6px;align-items:center}
 .tfoot{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted);margin-top:10px;gap:8px}
 .dline{display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);flex-wrap:wrap}
@@ -941,6 +945,15 @@ function pills(el,active,fn,items=FILTERS){
   el.innerHTML=items.map(([v,l])=>`<button class="pill ${v===active?'on':''}" data-f="${v}">${l}</button>`).join('');
   el.onclick=e=>{const b=e.target.closest('[data-f]');if(b)fn(b.dataset.f);};
 }
+/* accepted / started / cancelled / finished times of a trip */
+const fmtT=v=>v instanceof Date?fmtDate(v):v;
+function timesOf(t){
+  let tm=t.tm;
+  if(!tm){const b=t.date.getTime(),m=x=>new Date(b+x*6e4),st=t.status;
+    tm={acc:m(0),start:(st==='PaymentComplete'||st==='RideStarted')?m(7):null,canc:st.startsWith('Cancelled')?m(4):null,end:st==='PaymentComplete'?m(7+Math.round(t.km*3)):null};}
+  return [['Accepted',tm.acc],['Started',tm.start],['Cancelled',tm.canc],['Finished',tm.end]].filter(x=>x[1]).map(x=>[x[0],fmtT(x[1])]);
+}
+const timesHtml=t=>{const a=timesOf(t);return a.length?`<div class="ttimes">${a.map(x=>`<span><small>${x[0]}</small><b>${x[1]}</b></span>`).join('')}</div>`:'';};
 function tripCard(t,opts={}){
   const d=drv(t.driver),s=STATUS[t.status];
   const meta=t.type==='Rental'?`${ic('clock',16)}<span><b>Package</b> ${t.pkg}</span>`:t.type==='Reservation'?`${ic('cal',16)}<span><b>Reserved pickup</b> ${fmtDate(new Date(t.date.getTime()+36e5))}</span>`:'';
@@ -948,6 +961,7 @@ function tripCard(t,opts={}){
    <div class="trow"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${badge(s.t,s.c)}${typeTag(t.type)}${opts.current?'<span class="thisTag">Opened trip</span>':''}</div><span class="fare">${t.fare?'₹'+t.fare:'—'}</span></div>
    <div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${t.from}</div><div>${t.to}</div></div></div>
    ${meta?`<div class="tmeta">${meta}</div>`:''}
+   ${timesHtml(t)}
    <div class="tfoot"><span>${fmtDate(t.date)}</span><span class="num">${t.km} km</span></div>
    ${opts.noDriver?'':`<div class="dline">${ic('drivers',16)}${d.name}<button class="phone-link" data-phonemenu="${d.id}" data-from="${t.id}">${fmtPhone(d.phone)}</button></div>`}
    ${t.status==='DriverAccepted'?`<div class="tactions"><button class="btn ok" data-track="${t.id}">${ic('map',18)}Track Driver</button></div>`:''}
@@ -987,6 +1001,7 @@ function openDetail(id){
    <div class="card" style="margin-bottom:12px">
     <div class="trow"><div style="display:flex;gap:6px;flex-wrap:wrap">${badge(s.t,s.c)}${typeTag(t.type)}</div><span class="fare" style="font-size:26px">${t.fare?'₹'+t.fare.toFixed(2):'—'}</span></div>
     <div class="tl" style="margin-top:16px"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div style="white-space:normal">${t.from}</div><div style="white-space:normal">${t.to}</div></div></div>
+    ${timesHtml(t)}
     <div class="tfoot"><span>${fmtDate(t.date)}</span><span class="num">${t.km} km · OTP ${t.otp}</span></div>
     ${t.type==='Rental'?`<div class="tmeta">${ic('clock',16)}<span><b>Rental package</b> ${t.pkg}</span></div>`:''}
     ${t.type==='Reservation'?`<div class="tmeta">${ic('cal',16)}<span><b>Reserved pickup</b> ${fmtDate(new Date(t.date.getTime()+36e5))}</span></div>`:''}</div>
@@ -1453,6 +1468,7 @@ function tripKind(r){
   if(raw.includes('reserv')||raw.includes('schedul')||r.isReservation===true||r.isScheduled===true||r.isScheduledTrip===true||r.isReservationTrip===true)return 'Reservation';
   return 'Normal';
 }
+const tm=v=>{if(!v)return null;const d=new Date(v);return isNaN(d)?esc(v):d;};
 function mapTrip(r){
   let st=String(r.tripStatus||'').trim();
   if(!st){const c=new Date(r.createdOn||r.tripStartDate||0).getTime();if(c&&Date.now()-c<=864e5)st='DriverAccepted';}
@@ -1465,7 +1481,8 @@ function mapTrip(r){
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
     to:esc(type==='Rental'&&!r.toLocation?'Hourly package':(r.toLocation||'—')),km:+(num(r.finalDistanceInKilometers)||num(r.distanceInKilometers)).toFixed(1),
-    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r};
+    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r,
+    tm:{acc:tm(r.tripAcceptDate),start:tm(r.tripStartDate),canc:tm(r.tripCancelledDate||r.cancelledDate||r.cancelledOn||r.cancellationTime),end:tm(r.tripEndDate)}};
 }
 function mergeTrips(list){arr(list).forEach(r=>{const t=mapTrip(r);const i=TRIPS.findIndex(x=>x.id===t.id);if(i>=0)TRIPS[i]=t;else TRIPS.push(t);});TRIPS.sort((a,b)=>b.date-a.date);}
 
