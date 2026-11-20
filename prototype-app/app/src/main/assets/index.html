@@ -952,6 +952,9 @@ function pills(el,active,fn,items=FILTERS){
 }
 /* accepted / started / cancelled / finished times of a trip */
 const fmtT=v=>v instanceof Date?fmtDate(v):v;
+/* pickup distance: how far the driver was from the passenger (km) */
+const pickupKm=t=>{if(t.pk!==undefined)return t.pk;const h=[...String(t.id)].reduce((a,c)=>(a*31+c.charCodeAt(0))>>>0,7);return +(0.4+(h%38)/10).toFixed(1);};
+const pickupText=t=>{const p=pickupKm(t);return p>0?'Pickup '+p+' km · Trip ':'';};
 function timesOf(t){
   let tm=t.tm;
   if(!tm){const b=t.date.getTime(),m=x=>new Date(b+x*6e4),st=t.status;
@@ -1005,7 +1008,7 @@ function tripCard(t,opts={}){
    ${meta?`<div class="tmeta">${meta}</div>`:''}
    ${timesHtml(t)}
    ${reasonHtml(t)}
-   <div class="tfoot"><span>${fmtDate(t.date)}</span><span class="num">${t.km} km</span></div>
+   <div class="tfoot"><span>${fmtDate(t.date)}</span><span class="num">${pickupText(t)}${t.km} km</span></div>
    ${opts.noDriver?'':`<div class="dline">${ic('drivers',16)}${d.name}<button class="phone-link" data-phonemenu="${d.id}" data-from="${t.id}">${fmtPhone(d.phone)}</button></div>`}
    ${t.status==='DriverAccepted'?`<div class="tactions"><button class="btn ok" data-track="${t.id}">${ic('map',18)}Track Driver</button></div>`:''}
    ${t.status==='PaymentComplete'&&t.type!=='Rental'?`<div class="tactions"><a class="btn pri" href="${routeUrl(t)}" target="_blank" rel="noopener">${ic('map',18)}Route Info</a></div>`:''}</div>`;
@@ -1057,7 +1060,7 @@ function openDetail(id){
      ${row('Vehicle',d.model)}${row('Reg. no.',d.reg)}${row('Driver ID',cp('DRV'+d.phone+'A'))}</div>
    ${t.status==='DriverAccepted'?`<button class="btn ok" data-track="${t.id}" style="width:100%;margin-bottom:12px">${ic('map',18)}Track Driver Location</button>`:''}
    ${t.status==='PaymentComplete'&&t.type!=='Rental'?`<a class="btn pri" href="${routeUrl(t)}" target="_blank" rel="noopener" style="margin-bottom:12px">${ic('map',18)}Route Info · open in Google Maps</a>`:''}
-   <div class="sect"><div class="st">Fare breakdown</div>${row('Initial estimate','₹'+t.est.toFixed(2))}${row(t.status==='PaymentComplete'?'Final fare':'Fare (estimated)','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+Math.round(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+Math.round(t.fare*.1).toFixed(2))}</div>
+   <div class="sect"><div class="st">Fare breakdown</div>${row('Pickup distance',pickupKm(t)>0?pickupKm(t)+' km':'—')}${row('Initial estimate','₹'+t.est.toFixed(2))}${row(t.status==='PaymentComplete'?'Final fare':'Fare (estimated)','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+Math.round(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+Math.round(t.fare*.1).toFixed(2))}</div>
    <div class="sect"><div class="st">Passenger</div>${row('Name',t.passenger)}${row('Phone',fmtPhone(t.pphone))}${row('Trip ID',cp(t.id))}</div>
    ${t.raw?`<details class="sect rawf"><summary>All trip fields (for support)</summary>${Object.entries(t.raw).filter(([k,v])=>v!==null&&v!==''&&typeof v!=='object').map(([k,v])=>row(humanKey(k),escx(v))).join('')}</details>`:''}`;
   show('detail');$('#detailBody').scrollTop=0;
@@ -1522,12 +1525,13 @@ function mapTrip(r){
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
+  const pk0=num(r.totalPickupDistance??r.pickupDistance??r.driverToPassengerDistance);
   const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv/i.test(st)&&!/cancel|reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
     to:esc(type==='Rental'&&!r.toLocation?'Hourly package':(r.toLocation||'—')),km:+(num(r.finalDistanceInKilometers)||num(r.distanceInKilometers)).toFixed(1),
-    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r,live:true,rentalRows:rentalRowsFrom(r),reason:reasonFrom(r),
+    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r,live:true,pk:+pk0.toFixed(1),rentalRows:rentalRowsFrom(r),reason:reasonFrom(r),
     tm:{acc:tm(r.tripAcceptDate),start:tm(r.tripStartDate),canc:tm(r.tripCancelledDate||r.cancelledDate||r.cancelledOn||r.cancellationTime),end:tm(r.tripEndDate)}};
 }
 function mergeTrips(list){arr(list).forEach(r=>{const t=mapTrip(r);const i=TRIPS.findIndex(x=>x.id===t.id);if(i>=0)TRIPS[i]=t;else TRIPS.push(t);});TRIPS.sort((a,b)=>b.date-a.date);}
