@@ -38,8 +38,11 @@ export const FUNCTION_URLS: Record<EnvironmentType, Partial<Record<FunctionApp, 
 };
 
 const FUNCTION_ROUTES: Array<[RegExp, FunctionApp]> = [
-  [/^\/(Auth|CustomerCare|Reports)\//i, 'admin'],
-  [/^\/Notification\//i, 'platform'],
+  // Mapping confirmed by probing the function apps: sign-in and notifications live in platform,
+  // the add-on routes live in admin.
+  [/^\/(Auth|Notification)\//i, 'platform'],
+  [/^\/(CustomerCare|Reports)\//i, 'admin'],
+  [/^\/Vehicle\/AddOn\//i, 'admin'],
   [/^\/Driver\//i, 'driver'],
   [/^\/Vehicle\//i, 'vehicle'],
   [/^\/Passenger\//i, 'passenger'],
