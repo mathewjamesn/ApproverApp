@@ -1414,7 +1414,25 @@ drawReport();
 (function(){
 const NATIVE=!!(window.AndroidApp&&window.AndroidApp.http);
 const ls={g:k=>{try{return localStorage.getItem(k);}catch(e){return null;}},s:(k,v)=>{try{localStorage.setItem(k,v);}catch(e){}},d:k=>{try{localStorage.removeItem(k);}catch(e){}}};
-const BASES={PRODUCTION:'https://tok-apim-prod.azure-api.net/api',STAGING:'https://tok-apim-stgng.azure-api.net/api'};
+const APIM={PRODUCTION:'https://tok-apim-prod.azure-api.net/api',STAGING:'https://tok-apim-stgng.azure-api.net/api'};
+/* Direct calls to the function apps (APIM is the fallback). To send a route back through APIM, remove its entry here
+   or set DIRECT_FUNCTIONS to false. Add the staging host names below when they are known. */
+const DIRECT_FUNCTIONS=true;
+const FN={
+  PRODUCTION:{
+    admin:'https://admin-tok-functions-prod.azurewebsites.net/api',
+    driver:'https://driver-tok-functions-prod.azurewebsites.net/api',
+    passenger:'https://passenger-tok-functions-prod.azurewebsites.net/api',
+    vehicle:'https://vehicle-tok-functions-prod.azurewebsites.net/api',
+    platform:'https://platform-tok-functions-prod.azurewebsites.net/api'
+  },
+  STAGING:{}
+};
+const ROUTES=[[/^\/(Auth|CustomerCare|Reports)\//i,'admin'],[/^\/Notification\//i,'platform'],[/^\/Driver\//i,'driver'],[/^\/Vehicle\//i,'vehicle'],[/^\/Passenger\//i,'passenger']];
+function baseFor(path){
+  if(DIRECT_FUNCTIONS){for(const [re,k] of ROUTES){if(re.test(path)){const b=FN[ENV]&&FN[ENV][k];if(b)return b;}}}
+  return APIM[ENV];
+}
 let ENV=ls.g('env')==='STAGING'?'STAGING':'PRODUCTION';
 window.LIVE=false;const OV={};
 function install(){Object.assign(window,OV);routeUrl=OV.routeUrl;}
@@ -1428,7 +1446,7 @@ const errMsg=(st,j)=>{if(j&&typeof j==='object'){const m=j.message||(typeof j.er
   return st?'Request failed ('+st+')':(typeof j==='string'&&j?j:'No connection');};
 const settle=(res,rej)=>(st,b)=>{const j=parse(b);if(st>=200&&st<300)res(j);else{if(st===401&&window.LIVE)expired();rej({status:st,data:j,message:errMsg(st,j)});}};
 const api=(method,path,body)=>new Promise((res,rej)=>{const id=++rid;waits[id]=settle(res,rej);
-  window.AndroidApp.http(id,method,BASES[ENV]+path,body==null?'':JSON.stringify(body),ls.g('token')||'');});
+  window.AndroidApp.http(id,method,baseFor(path)+path,body==null?'':JSON.stringify(body),ls.g('token')||'');});
 const GET=p=>api('GET',p),POST=(p,b)=>api('POST',p,b==null?{}:b);
 
 /* ---------- small helpers ---------- */
@@ -1881,7 +1899,7 @@ document.addEventListener('click',e=>{
     fsOpen({type:'confirm',title:'Confirm upload',desc:`Are you sure you want to upload this new ${k} image?`,btn:'Upload',cancel:'Cancel',onOk:async()=>{
       const type={profile:'ProfilePhoto',license:'DriverLicense',vehicle:'VehicleRegistration'}[k];toast('Uploading…');
       try{const b64=await shrink(d.pend[k],1600);const id=++rid;
-        await new Promise((res,rej)=>{waits[id]=settle(res,rej);window.AndroidApp.upload(id,BASES[ENV]+'/CustomerCare/UploadDriverDocuments/'+d.phone+'/'+type,'fileToPost','image/'+type+'.jpg','image/jpeg',b64,ls.g('token')||'');});
+        await new Promise((res,rej)=>{waits[id]=settle(res,rej);window.AndroidApp.upload(id,baseFor('/CustomerCare/UploadDriverDocuments/')+'/CustomerCare/UploadDriverDocuments/'+d.phone+'/'+type,'fileToPost','image/'+type+'.jpg','image/jpeg',b64,ls.g('token')||'');});
         d.img[k]=d.pend[k];delete d.pend[k];d.doc.miss=d.doc.miss.filter(m=>m!==k);renderVerify();toast('Image uploaded');
       }catch(err){oops(err);}}});
     return;}

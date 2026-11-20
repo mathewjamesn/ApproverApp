@@ -1,6 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentApiBaseUrl } from '../../config/environment';
+import { getCurrentApiBaseUrl, getApiBaseUrlForPath } from '../../config/environment';
 
 // Create a configured Axios instance
 const apiClient = axios.create({
@@ -15,7 +15,7 @@ const apiClient = axios.create({
 // Request Interceptor
 apiClient.interceptors.request.use(
   async (config) => {
-    config.baseURL = getCurrentApiBaseUrl();
+    config.baseURL = getApiBaseUrlForPath(config.url || '');
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url || ''}`, {
       baseURL: config.baseURL,
       headers: config.headers,
