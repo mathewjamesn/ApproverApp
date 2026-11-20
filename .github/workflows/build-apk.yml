@@ -1,11 +1,9 @@
 # The Google Maps key comes from the MAPS_API_KEY repository secret (see the Build step).
 name: Build GMT Approver APK
 
+# Manual only: run it from the Actions tab (Run workflow) when a GMT Approver build is needed.
+# TOK Approver is built by build-prototype-apk.yml on every push.
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - "prototype-app/**"
   workflow_dispatch:
 
 permissions:
