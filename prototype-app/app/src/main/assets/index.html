@@ -1617,16 +1617,24 @@ function groupNotConverted(data){
     const pid=String(pick(it,['passengerId','passengerIdentifier','passengerID','customerId'])||pick(pax,['id','passengerId'])||phone||('row'+idx));
     let e=g.get(pid);
     if(!e){e={pid,name:nameFrom(pax)||String(pick(it,['passengerName','customerName'])||'')||[pick(it,['passengerFirstName']),pick(it,['passengerLastName'])].filter(Boolean).join(' ')||'Passenger',phone,
-      from:'',to:'',date:null,cat:'',requests:0,drivers:new Map()};g.set(pid,e);}
-    e.requests++;
+      from:'',to:'',date:null,cat:'',requests:0,reqs:new Map(),drivers:new Map()};g.set(pid,e);}
     const tRaw=pick(it,['createdOn','requestedOn','rideRequestedOn','createdDate','requestTime','requestedTime','timestamp','createdAt']);
     let d=tRaw?new Date(tRaw):null;if(d&&isNaN(d))d=null;
-    if(!e.date||(d&&d>e.date)){e.date=d||e.date;e.from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||e.from);e.to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||e.to);}
+    const from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||''),to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||'');
+    // one ride request = one count, however many drivers it was sent to
+    const reqId=pick(it,['rideRequestIdentifier','rideRequestId','rideRequestID','requestIdentifier','requestId','rideId','tripId','bookingId']);
+    const rkey=String(reqId||(tRaw+'|'+from+'|'+to));
+    let r=e.reqs.get(rkey);
+    if(!r){r={date:d,from,to,drivers:new Map()};e.reqs.set(rkey,r);}
+    if(!r.date&&d)r.date=d;
+    if(!e.date||(d&&d>e.date)){e.date=d||e.date;e.from=from||e.from;e.to=to||e.to;}
     e.cat=e.cat||String(pick(it,['vehicleCategory','vehicleType','category','rideCategory'])||'');
     const list=driversIn(it);
-    const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm;if(!e.drivers.has(key))e.drivers.set(key,{name:nm||'Driver',phone:ph});};
+    const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm,dv={name:nm||'Driver',phone:ph};
+      if(!r.drivers.has(key))r.drivers.set(key,dv);if(!e.drivers.has(key))e.drivers.set(key,dv);};
     if(list)list.forEach(add);else if(pick(it,['driverMobileNumber','driverName'])){add({name:pick(it,['driverName']),mobileNumber:pick(it,['driverMobileNumber'])});}
   });
+  g.forEach(e=>{e.requests=e.reqs.size;});
   return [...g.values()].sort((x,y)=>(y.date||0)-(x.date||0));
 }
 async function loadMissed(){
@@ -1647,12 +1655,12 @@ const missedHead=()=>todayBox()+`<div class="card" style="margin-top:10px;displa
 function missedLive(){
   const raw=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
   if(!MISSED.length)return missedHead()+empty('check','No missed requests '+(missedMin==='today'?'today':'in the last '+missedMin+' minutes'))+raw;
-  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${MISSED.reduce((a,m)=>a+m.requests,0)} request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
+  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.reduce((a,m)=>a+m.requests,0)} missed request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
    <div class="trow"><div class="drow" style="gap:10px"><div class="avatar">${esc(initials(m.name||'P'))}</div><div style="min-width:0"><div class="dname" style="font-size:16px">${esc(m.name)}</div>
-     <div class="muted" style="font-size:12px">${m.phone?fmtPhone(m.phone):'No number'}${m.requests>1?' · '+m.requests+' requests':''}</div></div></div><div class="qc">${m.phone?contactBtns(m.phone,esc(m.name),true):''}</div></div>
+     <div class="muted" style="font-size:12px">${m.phone?fmtPhone(m.phone):'No number'}${m.requests>1?' · '+m.requests+' missed requests':''}</div></div></div><div class="qc">${m.phone?contactBtns(m.phone,esc(m.name),true):''}</div></div>
    ${m.from||m.to?`<div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${esc(m.from||'—')}</div><div>${esc(m.to||'—')}</div></div></div>`:''}
    <div class="tfoot"><span>${m.date?fmtDate(m.date):'—'}</span><span>${esc(m.cat)}</span></div>
-   <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted':'No driver details'}</button></div>`).join('')+raw;
+   <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?(m.requests>1?m.requests+' requests · sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s'):'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted'):'No driver details'}</button></div>`).join('')+raw;
 }
 function bindMissed(){
   const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=sel.value==='today'?'today':+sel.value;ls.s('missedMin',missedMin);$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
@@ -1662,25 +1670,26 @@ async function loadMissedToday(){
   try{const g=groupNotConverted(await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsSinceMidnight()));missedToday=g.length;missedTodayReq=g.reduce((a,m)=>a+m.requests,0);}catch(e){}
   paintToday();kpis();
 }
-const todayTxt=()=>missedToday===null?'Loading…':missedTodayReq+' request'+(missedTodayReq===1?'':'s')+' from '+missedToday+' passenger'+(missedToday===1?'':'s');
-function paintToday(){const n=$('#missedTodayNum'),l=$('#missedTodayLbl');if(n)n.textContent=missedToday===null?'–':missedToday;if(l)l.textContent=todayTxt();}
-const todayBox=()=>`<div class="card" style="margin-top:6px;background:var(--solid);color:var(--solid-ink);display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:12px;opacity:.75;font-weight:700;letter-spacing:.05em">MISSED TODAY</div><div style="font-size:12px;opacity:.75;margin-top:2px" id="missedTodayLbl">${todayTxt()}</div></div><b id="missedTodayNum" style="font-family:var(--f-head);font-size:34px">${missedToday===null?'–':missedToday}</b></div>`;
+const todayTxt=()=>missedToday===null?'Loading…':'missed ride request'+(missedTodayReq===1?'':'s')+' from '+missedToday+' passenger'+(missedToday===1?'':'s');
+function paintToday(){const n=$('#missedTodayNum'),l=$('#missedTodayLbl');if(n)n.textContent=missedToday===null?'–':missedTodayReq;if(l)l.textContent=todayTxt();}
+const todayBox=()=>`<div class="card" style="margin-top:6px;background:var(--solid);color:var(--solid-ink);display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:12px;opacity:.75;font-weight:700;letter-spacing:.05em">MISSED TODAY</div><div style="font-size:12px;opacity:.75;margin-top:2px" id="missedTodayLbl">${todayTxt()}</div></div><b id="missedTodayNum" style="font-family:var(--f-head);font-size:34px">${missedToday===null?'–':missedTodayReq}</b></div>`;
 let sentEl=null;
 function closeSent(){if(sentEl)sentEl.classList.remove('on');}
 function sentSheet(m){
   if(!sentEl){sentEl=document.createElement('div');sentEl.id='sentSheet';$('#phone').appendChild(sentEl);
     sentEl.onclick=e=>{if(e.target.id==='sentSheet'||e.target.closest('[data-closesent]'))closeSent();};}
-  const ds=[...m.drivers.values()];
-  sentEl.innerHTML=`<div class="sentbox"><div class="trow" style="margin-bottom:4px"><div><b style="font-family:var(--f-head);font-size:17px">Request sent to ${ds.length} driver${ds.length===1?'':'s'}</b><div class="muted" style="font-size:12px">For ${esc(m.name)} · none of them took the ride</div></div>
-    <button class="ib" data-closesent aria-label="Close">${ic('close')}</button></div>
-    ${ds.map(d=>`<div class="row"><span class="l"><b style="color:var(--ink)">${esc(d.name)}</b></span><span class="r num">${d.phone?fmtPhone(d.phone):'—'}</span></div>`).join('')||'<div class="muted" style="padding:12px 0">No driver details were returned.</div>'}</div>`;
+  const reqs=[...m.reqs.values()].sort((x,y)=>(y.date||0)-(x.date||0));
+  const rows=ds=>ds.map(d=>`<div class="row"><span class="l"><b style="color:var(--ink)">${esc(d.name)}</b></span><span class="r num">${d.phone?fmtPhone(d.phone):'—'}</span></div>`).join('')||'<div class="muted" style="padding:12px 0">No driver details were returned.</div>';
+  const body=reqs.length>1?reqs.map((r,i)=>`<div class="mini-h" style="margin-top:12px">Request ${reqs.length-i}${r.date?' · '+fmtDate(r.date):''} · sent to ${r.drivers.size} driver${r.drivers.size===1?'':'s'}</div>${rows([...r.drivers.values()])}`).join(''):rows([...m.drivers.values()]);
+  sentEl.innerHTML=`<div class="sentbox"><div class="trow" style="margin-bottom:4px"><div><b style="font-family:var(--f-head);font-size:17px">${reqs.length>1?reqs.length+' missed requests':'Request sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')}</b><div class="muted" style="font-size:12px">For ${esc(m.name)} · none of the drivers took the ride</div></div>
+    <button class="ib" data-closesent aria-label="Close">${ic('close')}</button></div>${body}</div>`;
   sentEl.classList.add('on');
 }
 const _hb=window.hwBack;window.hwBack=function(){if(sentEl&&sentEl.classList.contains('on')){closeSent();return true;}return _hb?_hb():false;};
 function kpis(){
   const on=CITIES.reduce((a,c)=>a+c[1]+c[2],0);
   $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN')+(cityFail?'+':''):'–';
-  $('#kMissed').textContent=missedToday===null?'–':missedToday;
+  $('#kMissed').textContent=missedToday===null?'–':missedTodayReq;
   const kt=$('.kstrip .kc[data-go="trips"] b');if(kt){const s=new Date();s.setHours(0,0,0,0);kt.textContent=TRIPS.length?TRIPS.filter(t=>t.date>=s).length:'–';}
 }
 
