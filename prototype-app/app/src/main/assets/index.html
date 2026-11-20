@@ -162,6 +162,9 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .tl .t div+div{margin-top:12px}
 .treason{display:flex;gap:8px;align-items:flex-start;font-size:12px;margin-top:10px;padding:8px 10px;border-radius:10px;background:color-mix(in srgb,var(--bad) 10%,transparent);color:var(--ink)}
 .treason .i{flex:none;width:15px;height:15px;margin-top:1px;color:var(--bad)}
+#sentSheet{position:absolute;inset:0;z-index:70;background:rgba(0,0,0,.45);display:none;align-items:flex-end}
+#sentSheet.on{display:flex}
+#sentSheet .sentbox{width:100%;max-height:72%;overflow-y:auto;background:var(--card);color:var(--ink);border-radius:24px 24px 0 0;padding:16px 16px calc(24px + env(safe-area-inset-bottom,0px))}
 .ttimes{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:10px;padding:9px 10px;border-radius:10px;background:var(--chip)}
 .ttimes span{display:flex;flex-direction:column;min-width:0}
 .ttimes small{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
@@ -1054,7 +1057,7 @@ function openDetail(id){
      ${row('Vehicle',d.model)}${row('Reg. no.',d.reg)}${row('Driver ID',cp('DRV'+d.phone+'A'))}</div>
    ${t.status==='DriverAccepted'?`<button class="btn ok" data-track="${t.id}" style="width:100%;margin-bottom:12px">${ic('map',18)}Track Driver Location</button>`:''}
    ${t.status==='PaymentComplete'&&t.type!=='Rental'?`<a class="btn pri" href="${routeUrl(t)}" target="_blank" rel="noopener" style="margin-bottom:12px">${ic('map',18)}Route Info · open in Google Maps</a>`:''}
-   <div class="sect"><div class="st">Fare breakdown</div>${row('Initial estimate','₹'+t.est.toFixed(2))}${row('Final fare','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+Math.round(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+Math.round(t.fare*.1).toFixed(2))}</div>
+   <div class="sect"><div class="st">Fare breakdown</div>${row('Initial estimate','₹'+t.est.toFixed(2))}${row(t.status==='PaymentComplete'?'Final fare':'Fare (estimated)','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+Math.round(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+Math.round(t.fare*.1).toFixed(2))}</div>
    <div class="sect"><div class="st">Passenger</div>${row('Name',t.passenger)}${row('Phone',fmtPhone(t.pphone))}${row('Trip ID',cp(t.id))}</div>
    ${t.raw?`<details class="sect rawf"><summary>All trip fields (for support)</summary>${Object.entries(t.raw).filter(([k,v])=>v!==null&&v!==''&&typeof v!=='object').map(([k,v])=>row(humanKey(k),escx(v))).join('')}</details>`:''}`;
   show('detail');$('#detailBody').scrollTop=0;
@@ -1519,7 +1522,7 @@ function mapTrip(r){
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
-  const fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):0,est=num(r.initialFareAmount)||num(r.estimatedFareAmount)||fare;
+  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):((st==='DriverAccepted'||st==='RideStarted')?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
@@ -1589,25 +1592,79 @@ function drawCityBody(){
    <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
+let missedMin=+(ls.g('missedMin')||20),missedRaw=null;
+const MIN_CHOICES=[5,10,15,20,30,45,60,90,120,180];
+const pick=(o,ks)=>{for(const k of ks){const v=o&&o[k];if(v!==undefined&&v!==null&&v!=='')return v;}return '';};
+const nameFrom=o=>{if(!o||typeof o!=='object')return '';const n=pick(o,['fullName','name','driverName','passengerName']);if(n)return String(n);
+  return [pick(o,['firstName','passengerFirstName','driverFirstName']),pick(o,['lastName','passengerLastName','driverLastName'])].filter(Boolean).join(' ');};
+const phoneFrom=o=>last10(pick(o,['mobileNumber','phoneNumber','phone','driverMobileNumber','passengerMobileNumber']));
+const listIn=d=>{if(Array.isArray(d))return d;if(d&&typeof d==='object'){for(const k of ['data','rides','requests','items','results','value']){if(Array.isArray(d[k]))return d[k];}
+  for(const v of Object.values(d))if(Array.isArray(v))return v;}return [];};
+function driversIn(it){
+  for(const k of ['drivers','driversSentTo','sentToDrivers','sentTo','notifiedDrivers','rideRequestDrivers','driverList','driverDetails','requestedDrivers','candidateDrivers','driversNotified']){if(Array.isArray(it[k]))return it[k];}
+  for(const v of Object.values(it)){if(Array.isArray(v)&&v.length&&v[0]&&typeof v[0]==='object'&&(phoneFrom(v[0])||nameFrom(v[0])))return v;}
+  return null;
+}
+function groupNotConverted(data){
+  const g=new Map();
+  listIn(data).forEach((it,idx)=>{
+    if(!it||typeof it!=='object')return;
+    const pax=it.passenger||it.passengerDetails||it.customer||{};
+    const phone=phoneFrom(pax)||last10(pick(it,['passengerMobileNumber','passengerPhone','customerMobileNumber']));
+    const pid=String(pick(it,['passengerId','passengerIdentifier','passengerID','customerId'])||pick(pax,['id','passengerId'])||phone||('row'+idx));
+    let e=g.get(pid);
+    if(!e){e={pid,name:nameFrom(pax)||String(pick(it,['passengerName','customerName'])||'')||[pick(it,['passengerFirstName']),pick(it,['passengerLastName'])].filter(Boolean).join(' ')||'Passenger',phone,
+      from:'',to:'',date:null,cat:'',requests:0,drivers:new Map()};g.set(pid,e);}
+    e.requests++;
+    const tRaw=pick(it,['createdOn','requestedOn','rideRequestedOn','createdDate','requestTime','requestedTime','timestamp','createdAt']);
+    let d=tRaw?new Date(tRaw):null;if(d&&isNaN(d))d=null;
+    if(!e.date||(d&&d>e.date)){e.date=d||e.date;e.from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||e.from);e.to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||e.to);}
+    e.cat=e.cat||String(pick(it,['vehicleCategory','vehicleType','category','rideCategory'])||'');
+    const list=driversIn(it);
+    const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm;if(!e.drivers.has(key))e.drivers.set(key,{name:nm||'Driver',phone:ph});};
+    if(list)list.forEach(add);else if(pick(it,['driverMobileNumber','driverName'])){add({name:pick(it,['driverName']),mobileNumber:pick(it,['driverMobileNumber'])});}
+  });
+  return [...g.values()].sort((x,y)=>(y.date||0)-(x.date||0));
+}
 async function loadMissed(){
   const el=$('#missedBody');
   try{
-    const list=arr(await GET('/Reports/GetMissedRideRequests/1'));MISSED.length=0;
-    list.forEach(r=>{let d=new Date(r.requestedOn||r.createdOn);if(isNaN(d))d=new Date();
-      MISSED.push({from:esc(r.fromLocation||'—'),to:esc(r.toLocation||'—'),date:d,type:tripKind(r),reason:esc(r.reason||'No driver available'),notified:num(r.driversNotified),cat:catOf(r.vehicleCategory),pax:esc(r.passengerName||'Passenger')});});
-    el.innerHTML=MISSED.length?missedLive():empty('check','No missed requests in the last day');
-  }catch(e){MISSED.length=0;el.innerHTML=empty('alert','Missed requests are not connected to a backend report yet.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
-  kpis();
+    const data=await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+missedMin);
+    missedRaw=listIn(data)[0]||null;
+    const grouped=groupNotConverted(data);
+    MISSED.length=0;grouped.forEach(x=>MISSED.push(x));
+    el.innerHTML=missedLive();
+  }catch(e){MISSED.length=0;el.innerHTML=missedHead()+empty('alert','Could not load missed requests.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
+  bindMissed();kpis();
 }
+const missedHead=()=>`<div class="card" style="margin-top:6px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Not converted rides</b><div class="muted" style="font-size:12px">Passengers who did not get a ride</div></div>
+  <select id="missedSel" class="sel" style="width:auto;padding:8px 6px;font-weight:700" aria-label="Time window">${MIN_CHOICES.map(m=>`<option value="${m}" ${m===missedMin?'selected':''}>${m<60?m+' min':m%60?m+' min':(m/60)+' hr'}</option>`).join('')}</select></div>`;
 function missedLive(){
-  const reasons=[...new Set(MISSED.map(m=>m.reason))],col=['var(--bad)','var(--warn)','var(--info)','var(--muted)'];
-  const rows=reasons.map((r,i)=>[r,MISSED.filter(m=>m.reason===r).length,col[i%4]]);
-  return `<div class="card"><h2 class="h2">Missed requests</h2><div class="total" style="margin-top:10px"><span class="muted">Last 24 hours</span><b>${MISSED.length}</b></div>
-   <div class="sbarx">${rows.map(r=>`<i style="width:${r[1]/MISSED.length*100}%;background:${r[2]}"></i>`).join('')}</div>
-   ${rows.map(r=>`<div class="stat"><span class="l"><i class="dot" style="background:${r[2]}"></i>${r[0]}</span><span><b class="num">${r[1]}</b></span></div>`).join('')}</div>
-   <div class="sech"><h2 class="h2">Recent missed requests</h2></div><div class="card" style="padding-top:4px;padding-bottom:4px">${MISSED.map(m=>`<div class="mrow"><div class="trow"><span class="reason">${m.reason}</span>${typeTag(m.type)}</div>
-   <div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${m.from}</div><div>${m.to}</div></div></div><div class="tfoot"><span>${fmtDate(m.date)} · ${m.pax}</span><span>${m.cat} · ${m.notified} notified</span></div></div>`).join('')}</div>`;
+  const raw=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
+  if(!MISSED.length)return missedHead()+empty('check','No missed requests in the last '+missedMin+' minutes')+raw;
+  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.length} passenger${MISSED.length===1?'':'s'} · last ${missedMin} min</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
+   <div class="trow"><div class="drow" style="gap:10px"><div class="avatar">${esc(initials(m.name||'P'))}</div><div style="min-width:0"><div class="dname" style="font-size:16px">${esc(m.name)}</div>
+     <div class="muted" style="font-size:12px">${m.phone?fmtPhone(m.phone):'No number'}${m.requests>1?' · '+m.requests+' requests':''}</div></div></div><div class="qc">${m.phone?contactBtns(m.phone,esc(m.name),true):''}</div></div>
+   ${m.from||m.to?`<div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${esc(m.from||'—')}</div><div>${esc(m.to||'—')}</div></div></div>`:''}
+   <div class="tfoot"><span>${m.date?fmtDate(m.date):'—'}</span><span>${esc(m.cat)}</span></div>
+   <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted':'No driver details'}</button></div>`).join('')+raw;
 }
+function bindMissed(){
+  const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=+sel.value;ls.s('missedMin',missedMin);$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
+  $$('#missedBody [data-sent]').forEach(b=>b.onclick=()=>sentSheet(MISSED[+b.dataset.sent]));
+}
+let sentEl=null;
+function closeSent(){if(sentEl)sentEl.classList.remove('on');}
+function sentSheet(m){
+  if(!sentEl){sentEl=document.createElement('div');sentEl.id='sentSheet';$('#phone').appendChild(sentEl);
+    sentEl.onclick=e=>{if(e.target.id==='sentSheet'||e.target.closest('[data-closesent]'))closeSent();};}
+  const ds=[...m.drivers.values()];
+  sentEl.innerHTML=`<div class="sentbox"><div class="trow" style="margin-bottom:4px"><div><b style="font-family:var(--f-head);font-size:17px">Request sent to ${ds.length} driver${ds.length===1?'':'s'}</b><div class="muted" style="font-size:12px">For ${esc(m.name)} · none of them took the ride</div></div>
+    <button class="ib" data-closesent aria-label="Close">${ic('close')}</button></div>
+    ${ds.map(d=>`<div class="row"><span class="l"><b style="color:var(--ink)">${esc(d.name)}</b></span><span class="r num">${d.phone?fmtPhone(d.phone):'—'}</span></div>`).join('')||'<div class="muted" style="padding:12px 0">No driver details were returned.</div>'}</div>`;
+  sentEl.classList.add('on');
+}
+const _hb=window.hwBack;window.hwBack=function(){if(sentEl&&sentEl.classList.contains('on')){closeSent();return true;}return _hb?_hb():false;};
 function kpis(){
   const on=CITIES.reduce((a,c)=>a+c[1]+c[2],0);
   $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN')+(cityFail?'+':''):'–';
@@ -1987,7 +2044,7 @@ $('#ntSend').onclick=()=>{
 
 /* ---------- pull down to refresh ---------- */
 const REFRESH={
-  home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons()]),
+  home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons(),loadMissed()]),
   trips:()=>loadTrips(true),
   drivers:()=>loadDrivers(),
   addon:()=>loadAddons(),
@@ -2045,6 +2102,7 @@ async function startLive(){
   await Promise.allSettled([loadDrivers(),loadTrips(),loadAddons()]);
   loadCities();
   loadTop();
+  stamp.missed=Date.now();loadMissed();
 }
 const eb=$('#envBtn');
 eb.onclick=()=>{
