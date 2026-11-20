@@ -1525,7 +1525,7 @@ function mapTrip(r){
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
-  const pk0=num(r.totalPickupDistance??r.pickupDistance??r.driverToPassengerDistance);
+  const pk0=num(r.pickupDistance);
   const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv/i.test(st)&&!/cancel|reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
