@@ -1,3 +1,4 @@
+# The Google Maps key comes from the MAPS_API_KEY repository secret (see the Build step).
 name: Build GMT Approver APK
 
 on:

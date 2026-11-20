@@ -423,7 +423,7 @@ a.btn.pri{color:var(--solid-ink)}
       <div class="kstrip">
         <button class="kc lime" data-go="city"><span style="display:flex;align-items:center;gap:6px"><span class="pulse"></span>Online now</span><b id="kOnline"></b></button>
         <button class="kc" data-go="trips"><span>Trips today</span><b>1,384</b></button>
-        <button class="kc" data-go="missed"><span>Missed</span><b id="kMissed"></b></button>
+        <button class="kc" data-go="missed"><span>Missed today</span><b id="kMissed"></b></button>
       </div>
       <div id="homeTiles"></div>
     </div>
@@ -1522,7 +1522,7 @@ function mapTrip(r){
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
-  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):((st==='DriverAccepted'||st==='RideStarted')?est0:0),est=est0||fare;
+  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv/i.test(st)&&!/cancel|reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
@@ -1592,8 +1592,11 @@ function drawCityBody(){
    <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
-let missedMin=+(ls.g('missedMin')||20),missedRaw=null;
-const MIN_CHOICES=[5,10,15,20,30,45,60,90,120,180];
+let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0;
+const MIN_CHOICES=['today',5,10,15,20,30,45,60,90,120,180];
+const minsSinceMidnight=()=>{const d=new Date();d.setHours(0,0,0,0);return Math.max(1,Math.ceil((Date.now()-d.getTime())/60000));};
+const minsOf=v=>v==='today'?minsSinceMidnight():v;
+const winLabel=v=>v==='today'?'today':v<60?'last '+v+' min':v%60?'last '+v+' min':'last '+(v/60)+' hr';
 const pick=(o,ks)=>{for(const k of ks){const v=o&&o[k];if(v!==undefined&&v!==null&&v!=='')return v;}return '';};
 const nameFrom=o=>{if(!o||typeof o!=='object')return '';const n=pick(o,['fullName','name','driverName','passengerName']);if(n)return String(n);
   return [pick(o,['firstName','passengerFirstName','driverFirstName']),pick(o,['lastName','passengerLastName','driverLastName'])].filter(Boolean).join(' ');};
@@ -1629,20 +1632,22 @@ function groupNotConverted(data){
 async function loadMissed(){
   const el=$('#missedBody');
   try{
-    const data=await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+missedMin);
+    const data=await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsOf(missedMin));
     missedRaw=listIn(data)[0]||null;
     const grouped=groupNotConverted(data);
     MISSED.length=0;grouped.forEach(x=>MISSED.push(x));
+    if(missedMin==='today'){missedToday=grouped.length;missedTodayReq=grouped.reduce((a,m)=>a+m.requests,0);}
     el.innerHTML=missedLive();
+    if(missedMin!=='today')loadMissedToday();
   }catch(e){MISSED.length=0;el.innerHTML=missedHead()+empty('alert','Could not load missed requests.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
   bindMissed();kpis();
 }
-const missedHead=()=>`<div class="card" style="margin-top:6px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Not converted rides</b><div class="muted" style="font-size:12px">Passengers who did not get a ride</div></div>
-  <select id="missedSel" class="sel" style="width:auto;padding:8px 6px;font-weight:700" aria-label="Time window">${MIN_CHOICES.map(m=>`<option value="${m}" ${m===missedMin?'selected':''}>${m<60?m+' min':m%60?m+' min':(m/60)+' hr'}</option>`).join('')}</select></div>`;
+const missedHead=()=>todayBox()+`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Not converted rides</b><div class="muted" style="font-size:12px">Passengers who did not get a ride</div></div>
+  <select id="missedSel" class="sel" style="width:auto;padding:8px 6px;font-weight:700" aria-label="Time window">${MIN_CHOICES.map(m=>`<option value="${m}" ${m===missedMin?'selected':''}>${m==='today'?'Today':m<60?m+' min':m%60?m+' min':(m/60)+' hr'}</option>`).join('')}</select></div>`;
 function missedLive(){
   const raw=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
-  if(!MISSED.length)return missedHead()+empty('check','No missed requests in the last '+missedMin+' minutes')+raw;
-  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.length} passenger${MISSED.length===1?'':'s'} · last ${missedMin} min</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
+  if(!MISSED.length)return missedHead()+empty('check','No missed requests '+(missedMin==='today'?'today':'in the last '+missedMin+' minutes'))+raw;
+  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${MISSED.reduce((a,m)=>a+m.requests,0)} request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
    <div class="trow"><div class="drow" style="gap:10px"><div class="avatar">${esc(initials(m.name||'P'))}</div><div style="min-width:0"><div class="dname" style="font-size:16px">${esc(m.name)}</div>
      <div class="muted" style="font-size:12px">${m.phone?fmtPhone(m.phone):'No number'}${m.requests>1?' · '+m.requests+' requests':''}</div></div></div><div class="qc">${m.phone?contactBtns(m.phone,esc(m.name),true):''}</div></div>
    ${m.from||m.to?`<div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${esc(m.from||'—')}</div><div>${esc(m.to||'—')}</div></div></div>`:''}
@@ -1650,9 +1655,16 @@ function missedLive(){
    <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted':'No driver details'}</button></div>`).join('')+raw;
 }
 function bindMissed(){
-  const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=+sel.value;ls.s('missedMin',missedMin);$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
+  const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=sel.value==='today'?'today':+sel.value;ls.s('missedMin',missedMin);$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
   $$('#missedBody [data-sent]').forEach(b=>b.onclick=()=>sentSheet(MISSED[+b.dataset.sent]));
 }
+async function loadMissedToday(){
+  try{const g=groupNotConverted(await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsSinceMidnight()));missedToday=g.length;missedTodayReq=g.reduce((a,m)=>a+m.requests,0);}catch(e){}
+  paintToday();kpis();
+}
+const todayTxt=()=>missedToday===null?'Loading…':missedTodayReq+' request'+(missedTodayReq===1?'':'s')+' from '+missedToday+' passenger'+(missedToday===1?'':'s');
+function paintToday(){const n=$('#missedTodayNum'),l=$('#missedTodayLbl');if(n)n.textContent=missedToday===null?'–':missedToday;if(l)l.textContent=todayTxt();}
+const todayBox=()=>`<div class="card" style="margin-top:6px;background:var(--solid);color:var(--solid-ink);display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:12px;opacity:.75;font-weight:700;letter-spacing:.05em">MISSED TODAY</div><div style="font-size:12px;opacity:.75;margin-top:2px" id="missedTodayLbl">${todayTxt()}</div></div><b id="missedTodayNum" style="font-family:var(--f-head);font-size:34px">${missedToday===null?'–':missedToday}</b></div>`;
 let sentEl=null;
 function closeSent(){if(sentEl)sentEl.classList.remove('on');}
 function sentSheet(m){
@@ -1668,7 +1680,7 @@ const _hb=window.hwBack;window.hwBack=function(){if(sentEl&&sentEl.classList.con
 function kpis(){
   const on=CITIES.reduce((a,c)=>a+c[1]+c[2],0);
   $('#kOnline').textContent=stamp.cities?on.toLocaleString('en-IN')+(cityFail?'+':''):'–';
-  $('#kMissed').textContent=stamp.missed||MISSED.length?MISSED.length:'–';
+  $('#kMissed').textContent=missedToday===null?'–':missedToday;
   const kt=$('.kstrip .kc[data-go="trips"] b');if(kt){const s=new Date();s.setHours(0,0,0,0);kt.textContent=TRIPS.length?TRIPS.filter(t=>t.date>=s).length:'–';}
 }
 
@@ -2044,13 +2056,13 @@ $('#ntSend').onclick=()=>{
 
 /* ---------- pull down to refresh ---------- */
 const REFRESH={
-  home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons(),loadMissed()]),
+  home:()=>Promise.all([loadTrips(),loadCities(),loadDrivers(),loadAddons(),loadMissedToday()]),
   trips:()=>loadTrips(true),
   drivers:()=>loadDrivers(),
   addon:()=>loadAddons(),
   top:async()=>{await loadTop();renderTop();},
   city:()=>loadCities(),
-  missed:()=>{stamp.missed=Date.now();return loadMissed();},
+  missed:()=>{stamp.missed=Date.now();return Promise.all([loadMissed(),loadMissedToday()]);},
   reports:()=>{Object.keys(cache).forEach(k=>delete cache[k]);stamp.reg=0;return window.drawReport();},
   pax:()=>paxPhone?paxSearch(paxPhone,true):Promise.resolve(),
   dtrips:async()=>{const d=drv(dtId);if(d){delete gotTrips[d.phone];await loadDriverTrips(d.phone);renderDT();}}
@@ -2102,7 +2114,7 @@ async function startLive(){
   await Promise.allSettled([loadDrivers(),loadTrips(),loadAddons()]);
   loadCities();
   loadTop();
-  stamp.missed=Date.now();loadMissed();
+  loadMissedToday();
 }
 const eb=$('#envBtn');
 eb.onclick=()=>{
