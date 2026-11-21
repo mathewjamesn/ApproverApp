@@ -53,6 +53,11 @@ export const ENDPOINTS = {
     // TODO(backend): confirm the real route. Used by the Missed Requests screen.
     MISSED_REQUESTS: '/Reports/GetMissedRideRequests/',
   },
+  RESERVATIONS: {
+    LIST: '/CustomerCare/Reservations/',
+    DETAILS: '/CustomerCare/Reservation/',
+    CANCELLATIONS: '/CustomerCare/ReservationCancellations/',
+  },
   NOTIFICATION: {
     SEND_NOTIFICATION: '/Notification/SendNotification/false',
     SEND_NOTIFICATION_V2: '/Notification/SendToTopic',

@@ -30,6 +30,10 @@ import OnlineDriversByCityScreen from '../screens/Main/OnlineDriversByCityScreen
 import TopOnlineDriversScreen from '../screens/Main/TopOnlineDriversScreen';
 import MissedRequestsScreen from '../screens/Main/MissedRequestsScreen';
 import LiveMapScreen from '../screens/Main/LiveMapScreen';
+import ReservationsScreen from '../screens/Main/ReservationsScreen';
+import ReservationDetailsScreen from '../screens/Main/ReservationDetailsScreen';
+import AssignReservationDriverScreen from '../screens/Main/AssignReservationDriverScreen';
+import ReservationCancellationsScreen from '../screens/Main/ReservationCancellationsScreen';
 import { useTheme } from '../theme/ThemeContext';
 import { useEnvironment } from '../context/EnvironmentContext';
 
@@ -148,6 +152,10 @@ export default function AppNavigator() {
       <Stack.Screen name="TopOnlineDrivers" component={TopOnlineDriversScreen} />
       <Stack.Screen name="MissedRequests" component={MissedRequestsScreen} />
       <Stack.Screen name="LiveMap" component={LiveMapScreen} />
+      <Stack.Screen name="Reservations" component={ReservationsScreen} />
+      <Stack.Screen name="ReservationDetails" component={ReservationDetailsScreen} />
+      <Stack.Screen name="AssignReservationDriver" component={AssignReservationDriverScreen} />
+      <Stack.Screen name="ReservationCancellations" component={ReservationCancellationsScreen} />
     </Stack.Navigator>
   );
 }
