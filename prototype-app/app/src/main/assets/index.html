@@ -237,7 +237,7 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 .leaflet-container{font-family:inherit}.leaflet-control-attribution{font-size:10px}
 select.sel{width:100%;background:transparent;border:0;color:var(--ink);font:inherit;font-size:15px;padding:13px 0;outline:none}
 select.sel option{color:#000}
-#trkMap .leaflet-container{position:absolute;inset:0}
+#trkMap .leaflet-container,#locMap .leaflet-container,#heatMap .leaflet-container{position:absolute;inset:0}
 /* map */
 .mapwrap{position:absolute;inset:0;background:var(--map-land);overflow:hidden}
 .mapwrap svg.base{position:absolute;inset:0;width:100%;height:100%}
@@ -521,6 +521,22 @@ a.btn.pri{color:var(--solid-ink)}
     <div class="body" id="paxBody" style="padding-top:6px"></div>
   </section>
 
+  <!-- HEAT MAP -->
+  <section class="screen sub" id="s-heat">
+    <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1>Heat Map</h1><div class="s" id="heatSub">Where the demand is</div></div></div>
+    <div style="padding:0 16px 10px"><div class="seg" id="heatSeg"><button class="on" data-v="map">Map</button><button data-v="list">List</button></div></div>
+    <div class="mapwrap trkmap" id="heatMap"></div>
+    <div class="body" id="heatList" style="display:none"></div>
+  </section>
+
+  <!-- LOCATE DRIVER -->
+  <section class="screen sub" id="s-locate">
+    <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1>Locate a Driver</h1><div class="s">Find where a driver is right now</div></div></div>
+    <div style="padding:0 16px 8px;display:flex;gap:8px"><div class="field" style="flex:1"><span data-ic="search"></span><input id="locIn" inputmode="numeric" maxlength="10" placeholder="Driver's 10-digit mobile number"></div><button class="btn pri" id="locGo" style="padding:0 18px">Locate</button></div>
+    <div class="mapwrap trkmap" id="locMap"></div>
+    <div class="trkcard" id="locCard"></div>
+  </section>
+
   <!-- SEND NOTIFICATION -->
   <section class="screen sub" id="s-notify">
     <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1>Send notification</h1><div class="s">Push message to all passengers or drivers</div></div></div>
@@ -744,7 +760,7 @@ const empty=(i,t)=>`<div class="empty">${ic(i)}${t}</div>`;
 hydrate(document);
 
 /* ---------- navigation ---------- */
-const SUB=['notify','pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail'];
+const SUB=['notify','pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail','locate','heat'];
 const stack=[];let current='home';
 function show(name,opts={}){
   closeMenu();
@@ -789,8 +805,8 @@ $('#kOnline').textContent=(TOTAL_CARS+TOTAL_AUTOS).toLocaleString('en-IN');
 $('#kMissed').textContent=MISSED.length;
 const TILES=[
  ['Approvals',[['Pending Drivers','clock','verifyPending','var(--info)',()=>DRIVERS.filter(d=>d.status==='Pending'||d.status==='Document Pending').length],['Vehicle Add-on','car','addon','var(--auto)',()=>ADDONS.length],['Rejected Drivers','ban','verifyRej','var(--bad)']]],
- ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','pax','var(--rental)']]],
- ['Insights',[['Online by City','building','city','var(--resv)',1],['Top Online Drivers','trophy','top','var(--warn)',1],['Reports','chart','reports','var(--accent)'],['Missed Requests','alert','missed','var(--bad)',1]]],
+ ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','pax','var(--rental)'],['Locate Driver','map','locate','var(--warn)',1]]],
+ ['Insights',[['Online by City','building','city','var(--resv)',1],['Top Online Drivers','trophy','top','var(--warn)',1],['Reports','chart','reports','var(--accent)'],['Missed Requests','alert','missed','var(--bad)',1],['Heat Map','chart','heat','#F97316',1]]],
  ['Tools',[['Get OTP','key','otp','#6366F1'],['Fare Multiplier','gauge','fare','var(--auto)'],['Airport Multiplier','plane','airport','#06B6D4'],['Send Notification','send','notify','#EC4899']]]];
 function drawHome(){$('#homeTiles').innerHTML=TILES.map(([h,items])=>`<div class="stl">${h}</div><div class="tgrid">${items.map(t=>{
   const act=/^verify/.test(t[2]||'')?`data-vtab="${t[2]}"`:t[2]?`data-go="${t[2]}"`:'data-stub';
@@ -2068,6 +2084,91 @@ $('#paxGo').onclick=()=>paxSearch($('#paxIn').value);
 paxRender('Search for a passenger by mobile number');
 
 
+/* ---------- heat map ---------- */
+let heatMap=null,heatLayers=[],heatPts=[],heatView='map',heatErr='';
+const HEAT_PATH='/Heatmap/Get/1/25';
+function heatParse(d){
+  return listIn(d).map((it,i)=>{
+    if(!it||typeof it!=='object')return null;
+    let la=0,lo=0;
+    for(const c of [it,it.location,it.geoLocation,it.center,it.coordinates,it.point]){
+      if(!c||typeof c!=='object')continue;
+      la=num(c.latitude??c.Latitude??c.lat??c.Lat);lo=num(c.longitude??c.Longitude??c.lng??c.Lng??c.lon??c.long);
+      if(la&&lo)break;
+    }
+    if(!la||!lo)return null;
+    const w=num(pick(it,['count','weight','intensity','value','requests','requestCount','total','totalCount','rideCount','demand','score']))||1;
+    const nm=String(pick(it,['name','area','areaName','locationName','location','address','place','zone','city','title'])||'');
+    return {lat:la,lon:lo,w,name:typeof pick(it,['location'])==='object'?'':nm};
+  }).filter(Boolean).sort((a,b)=>b.w-a.w);
+}
+const gmapsUrl=p=>'https://www.google.com/maps/search/?api=1&query='+p.lat.toFixed(6)+','+p.lon.toFixed(6);
+function heatDraw(){
+  $('#heatSub').textContent=heatPts.length?heatPts.length+' hot spot'+(heatPts.length===1?'':'s'):'Where the demand is';
+  const mx=Math.max(1,...heatPts.map(p=>p.w));
+  if(heatMap){
+    heatLayers.forEach(x=>heatMap.removeLayer(x));heatLayers=[];
+    heatPts.forEach(p=>{const t=p.w/mx,col='hsl('+Math.round(55-55*t)+',100%,50%)';
+      const c=L.circleMarker([p.lat,p.lon],{radius:16+24*t,stroke:false,fillColor:col,fillOpacity:.4}).addTo(heatMap);
+      c.bindPopup('<b>'+esc(p.name||'Hot spot')+'</b><br>'+p.w+' · <a href="'+gmapsUrl(p)+'" target="_blank" rel="noopener">Open in Maps</a>');heatLayers.push(c);});
+    setTimeout(()=>{heatMap.invalidateSize();if(heatPts.length)heatMap.fitBounds(L.latLngBounds(heatPts.map(p=>[p.lat,p.lon])),{padding:[50,50],maxZoom:14});},80);
+  }
+  $('#heatList').innerHTML=heatErr?`<div class="err">${esc(heatErr)}</div>`:heatPts.length?'<div class="card">'+heatPts.map((p,i)=>`<div class="row" style="align-items:center;gap:10px"><span class="num muted" style="width:22px">${i+1}</span><span class="l" style="flex:1;min-width:0"><b style="color:var(--ink)">${esc(p.name||'Hot spot')}</b><br><span class="muted num" style="font-size:12px">${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}</span></span><span class="r num" style="margin-right:8px"><b>${p.w}</b></span><a class="btn" style="padding:8px 12px;font-size:13px" href="${gmapsUrl(p)}" target="_blank" rel="noopener">${ic('map',16)}Open in Maps</a></div>`).join('')+'</div>':empty('map','No hot spots right now');
+}
+async function loadHeat(){
+  if(!heatMap)heatMap=mkMap($('#heatMap'));
+  heatErr='';
+  try{
+    if(window.LIVE)heatPts=heatParse(await GET(HEAT_PATH));
+    else heatPts=[[9.9816,76.2999,40,'Edappally'],[9.9312,76.2673,25,'Fort Kochi'],[10.0159,76.3419,18,'Kakkanad'],[9.9674,76.2455,9,'Vypin']].map(a=>({lat:a[0],lon:a[1],w:a[2],name:a[3]}));
+    if(window.LIVE&&!heatPts.length)heatErr='';
+  }catch(e){heatPts=[];heatErr=e.message;}
+  heatDraw();
+}
+function heatView_(v){heatView=v;$$('#heatSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));
+  $('#heatMap').style.display=v==='map'?'':'none';$('#heatList').style.display=v==='list'?'':'none';
+  if(v==='map'&&heatMap)setTimeout(()=>heatMap.invalidateSize(),60);}
+$('#heatSeg').onclick=e=>{const b=e.target.closest('button');if(b)heatView_(b.dataset.v);};
+document.addEventListener('click',e=>{if(e.target.closest('[data-go="heat"]')){heatView_('map');loadHeat();}});
+
+/* ---------- locate a driver ---------- */
+let locMap=null,locMark=null;
+function locDraw(P,p,raw,msg){
+  const d=DRIVERS.find(x=>x.phone===p),nm=d?d.name:String(pick(raw||{},['driverName','name'])||'Driver');
+  const when=raw?pick(raw,['updatedOn','lastUpdatedOn','lastUpdated','locationUpdatedOn','timestamp','modifiedOn','createdOn']):null;
+  let wd=when?new Date(when):null;if(wd&&isNaN(wd))wd=null;
+  const st=P&&P.status?String(P.status):'';
+  const url=P?'https://www.google.com/maps/search/?api=1&query='+P.lat.toFixed(6)+','+P.lon.toFixed(6):'';
+  $('#locCard').innerHTML=(P?`<div class="trow"><span style="font-weight:700">Driver located</span>${st?badge(st,/offline/i.test(st)?'var(--warn)':'var(--ok)'):badge('Located','var(--ok)')}</div>
+   <div class="drow" style="margin-top:12px"><div class="avatar">${initials(nm)}</div><div style="flex:1;min-width:0"><div class="dname" style="font-size:16px">${esc(nm)}</div><div class="muted" style="font-size:13px">${fmtPhone(p)}${d?' · '+d.cat:''}</div></div>${contactBtns(p,nm)}</div>
+   <div class="row" style="border:0;padding:12px 0 4px"><span class="l">Coordinates</span><span class="r num">${P.lat.toFixed(5)}, ${P.lon.toFixed(5)}</span></div>
+   ${wd?`<div class="row" style="padding:8px 0 0"><span class="l">Last updated</span><span class="r">${fmtDate(wd)}</span></div>`:''}
+   <div class="tactions"><button class="btn" id="locRef">${ic('refresh',18)}Refresh</button><a class="btn pri" href="${url}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a></div>`
+   :`<div class="err" style="margin:0">${esc(msg)}</div>`)+(raw&&typeof raw==='object'&&!P?`<details style="margin-top:12px"><summary class="muted" style="font-size:12px">Response fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">${esc(JSON.stringify(raw,null,1).slice(0,1500))}</pre></details>`:'');
+  const rb=$('#locRef');if(rb)rb.onclick=()=>locateDriver(p);
+}
+async function locateDriver(p){
+  p=last10(p);
+  if(p.length!==10){locDraw(null,p,null,'Enter a valid 10-digit mobile number.');return;}
+  $('#locCard').innerHTML=empty('search','Locating…');
+  if(!locMap)locMap=mkMap($('#locMap'));
+  let raw=null,P=null,msg='';
+  try{raw=window.LIVE?await GET('/Driver/'+p+'/LocationDetails'):{latitude:9.9816,longitude:76.2999,status:'Online'};
+    P=pos(Array.isArray(raw)?raw[0]:raw);if(!P)msg='No location is available for '+fmtPhone(p)+'. The driver may be offline or has not shared a location yet.';}
+  catch(e){msg=e.status===404?'No driver found with '+fmtPhone(p)+'.':e.message;}
+  if(Array.isArray(raw))raw=raw[0];
+  if(locMap){
+    if(locMark){locMap.removeLayer(locMark);locMark=null;}
+    setTimeout(()=>{locMap.invalidateSize();
+      if(P){locMark=L.marker([P.lat,P.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin drv" style="position:relative;left:auto;top:auto;margin:0">${ic('car',22)}</div>`})}).addTo(locMap);const dv=DRIVERS.find(x=>x.phone===p);locMark.bindPopup('<b>'+esc(dv?dv.name:String(pick(raw||{},['driverName','name'])||'Driver'))+'</b><br><a href="tel:+91'+p+'" style="font-weight:700;color:var(--brand-ink,#0E7C4A);text-decoration:underline">📞 '+fmtPhone(p)+'</a><br><span style="font-size:11px;opacity:.7">Tap the number to call</span>').openPopup();locMap.setView([P.lat,P.lon],16);}},80);
+  }
+  locDraw(P,p,raw,msg);
+}
+$('#locIn').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');};
+$('#locIn').onkeydown=e=>{if(e.key==='Enter')locateDriver($('#locIn').value);};
+$('#locGo').onclick=()=>locateDriver($('#locIn').value);
+$('#locCard').innerHTML=empty('map','Enter a driver\'s mobile number to see where they are');
+
 /* ---------- send notification ---------- */
 let ntAud='Passenger';
 const ntNote=()=>{$('#ntNote').textContent='This goes to every '+ntAud.toLowerCase()+' who has the TOK '+ntAud.toLowerCase()+' app installed.';};
@@ -2096,6 +2197,7 @@ const REFRESH={
   city:()=>loadCities(),
   missed:()=>{stamp.missed=Date.now();return Promise.all([loadMissed(),loadMissedToday()]);},
   reports:()=>{Object.keys(cache).forEach(k=>delete cache[k]);stamp.reg=0;return window.drawReport();},
+  heat:()=>loadHeat(),
   pax:()=>paxPhone?paxSearch(paxPhone,true):Promise.resolve(),
   dtrips:async()=>{const d=drv(dtId);if(d){delete gotTrips[d.phone];await loadDriverTrips(d.phone);renderDT();}}
 };
