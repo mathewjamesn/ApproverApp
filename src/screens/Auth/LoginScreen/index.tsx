@@ -68,13 +68,30 @@ export default function LoginScreen({ navigation }: any) {
           authStatus === messaging.AuthorizationStatus.PROVISIONAL;
 
         if (enabled) {
-          fcmToken = await messaging().getToken();
+          // getToken can hang when the device can't reach Google's servers, so give up after 20 seconds.
+          fcmToken = await Promise.race([
+            messaging().getToken(),
+            new Promise<string>((_, reject) =>
+              setTimeout(() => reject(new Error('Timed out getting the notification token')), 20000),
+            ),
+          ]);
         }
       } catch (e) {
         console.log('FCM Token error:', e);
       }
 
-      if (!fcmToken) return
+      if (!fcmToken) {
+        setIsLoading(false);
+        setFeedback({
+          visible: true,
+          type: 'error',
+          title: 'Notifications Unavailable',
+          description:
+            'Could not register this device for notifications. Check your internet connection and that notifications are allowed, then try again.',
+          onAction: () => setFeedback(prev => ({ ...prev, visible: false })),
+        });
+        return;
+      }
 
       // Trigger API Call
       const res = await authService.loginUser({
