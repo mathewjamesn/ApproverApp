@@ -36,6 +36,7 @@ const SECTIONS: Section[] = [
       { title: 'Trips', icon: '📑', route: 'Trips' },
       { title: 'Drivers', icon: '🧑‍✈️', route: 'Drivers' },
       { title: 'Passengers', icon: '👥', route: 'Passengers' },
+      { title: 'Reservations', icon: '📅', route: 'Reservations' },
     ],
   },
   {
