@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "android": "react-native run-android",
+    "apk:tok": "cd prototype-app && ./gradlew assembleRelease && echo \"\nTOK Approver APK: prototype-app/app/build/outputs/apk/release/app-release.apk\"",
+    "apk:gmt": "cd android && ./gradlew assembleRelease && echo \"\nGMT Approver APK: android/app/build/outputs/apk/release/app-release.apk\"",
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
