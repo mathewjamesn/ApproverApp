@@ -85,8 +85,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        // The Google Maps key is not stored in the repository. Set MAPS_API_KEY as an environment variable
-        // (CI secret) or in ~/.gradle/gradle.properties.
+        // The Google Maps key comes from MAPS_API_KEY in android/gradle.properties. A MAPS_API_KEY environment
+        // variable (CI secret) or ~/.gradle/gradle.properties entry overrides it.
         manifestPlaceholders = [MAPS_API_KEY: (System.getenv('MAPS_API_KEY') ?: (project.findProperty('MAPS_API_KEY') ?: ''))]
     }
     signingConfigs {
