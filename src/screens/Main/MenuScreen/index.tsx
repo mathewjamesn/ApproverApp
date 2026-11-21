@@ -54,6 +54,7 @@ export default function MenuScreen({ navigation }: any) {
          </View>
 
          <View style={styles.card}>
+            <MenuItem styles={styles} icon="📅" title="Reservations" onPress={() => navigation.navigate('Reservations' as never)} />
             <MenuItem styles={styles} icon="🔔" title="Send Notification" onPress={() => navigation.navigate('SendNotification' as never)} />
             <MenuItem styles={styles} icon="🔓" title="Get OTP" onPress={() => navigation.navigate('GetOTP' as never)} />
             <MenuItem styles={styles} icon="🔀" title="Fare Multiplier" onPress={() => navigation.navigate('FareMultiplier' as never)} />
