@@ -172,5 +172,18 @@ public class MainActivity extends Activity {
             ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
             cm.setPrimaryClip(ClipData.newPlainText("text", text));
         }
+
+        /** Google Maps key from the manifest (see app/build.gradle); empty when none was configured. */
+        @JavascriptInterface
+        public String mapsKey() {
+            try {
+                android.content.pm.ApplicationInfo ai = getPackageManager()
+                        .getApplicationInfo(getPackageName(), android.content.pm.PackageManager.GET_META_DATA);
+                String key = ai.metaData != null ? ai.metaData.getString("tok.MAPS_API_KEY") : null;
+                return key != null ? key : "";
+            } catch (Exception e) {
+                return "";
+            }
+        }
     }
 }

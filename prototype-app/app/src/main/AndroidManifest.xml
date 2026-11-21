@@ -10,6 +10,11 @@
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false">
 
+        <!-- Google Maps key handed to the page (Maps JavaScript API). Filled in by app/build.gradle. -->
+        <meta-data
+            android:name="tok.MAPS_API_KEY"
+            android:value="${MAPS_API_KEY}" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"

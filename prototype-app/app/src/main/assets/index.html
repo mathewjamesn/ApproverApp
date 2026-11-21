@@ -5,7 +5,6 @@
 <style>[hidden]{display:none!important}img{max-width:100%}html{color-scheme:light dark}</style>
 <title>TOK Approver</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
 <style>
 /* Layout: ops-console app in black + light green (same tokens as the Driver app). Black Home header with live numbers, tile sections, black bottom nav, full-screen sub-pages. */
@@ -234,10 +233,10 @@ button:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px so
 #login .btn.pri{background:var(--lime);color:#000;min-height:50px;border-radius:14px;font-weight:800;font-size:15px;display:flex;align-items:center;justify-content:center}#login .btn:disabled{opacity:.6}
 #lmap{position:absolute;inset:0;z-index:1;background:var(--map-land)}
 .lcar{background:none;border:0}.lcar .car{position:relative;margin:0;left:auto;top:auto;transition:none}
-.leaflet-container{font-family:inherit}.leaflet-control-attribution{font-size:10px}
+.gm-style{font-family:inherit}.gm-style .gm-style-iw-c{border-radius:12px}.gm-style .gm-style-iw-d{color:#000;font-size:13px;line-height:1.5}
 select.sel{width:100%;background:transparent;border:0;color:var(--ink);font:inherit;font-size:15px;padding:13px 0;outline:none}
 select.sel option{color:#000}
-#trkMap .leaflet-container,#locMap .leaflet-container,#heatMap .leaflet-container{position:absolute;inset:0}
+.gpin{position:absolute;cursor:pointer}
 /* map */
 .mapwrap{position:absolute;inset:0;background:var(--map-land);overflow:hidden}
 .mapwrap svg.base{position:absolute;inset:0;width:100%;height:100%}
@@ -1420,7 +1419,142 @@ document.addEventListener('click',e=>{
 
 drawReport();
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ----------------------------------------------------------------------------
+   Maps: Google Maps JavaScript API behind the small Leaflet-style API the screens
+   below already use (L.map, L.marker + L.divIcon, L.circleMarker, L.polyline,
+   L.latLngBounds, addTo/removeLayer/fitBounds/setView/bindPopup/openPopup/on).
+   The key is the app's MAPS_API_KEY, handed over by the Android wrapper.
+   Layers added before Google's script has loaded are drawn once it is ready.
+---------------------------------------------------------------------------- */
+(function(){
+  const KEY=(window.AndroidApp&&window.AndroidApp.mapsKey)?String(window.AndroidApp.mapsKey()||''):'';
+  let gmReady=null,authFailed=false;
+  const live=new Set();
+  // Shows a message over the map area without removing Google's own elements.
+  function msgInto(el,text){
+    let d=el.querySelector(':scope > .gmap-msg');
+    if(!d){d=document.createElement('div');d.className='empty gmap-msg';d.style.cssText='position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;background:var(--map-land)';el.appendChild(d);}
+    d.textContent=text;
+  }
+  window.gm_authFailure=function(){authFailed=true;live.forEach(m=>msgInto(m._el,'Google Maps rejected the API key. Enable the Maps JavaScript API for this key in Google Cloud Console.'));};
+  function loadGoogle(){
+    if(gmReady)return gmReady;
+    gmReady=new Promise((res,rej)=>{
+      if(!KEY){rej(new Error('No Google Maps key is configured for this build.'));return;}
+      window.__tokMapsReady=()=>res(window.google.maps);
+      const s=document.createElement('script');
+      s.src='https://maps.googleapis.com/maps/api/js?key='+encodeURIComponent(KEY)+'&v=weekly&loading=async&callback=__tokMapsReady';
+      s.async=true;
+      s.onerror=()=>{gmReady=null;rej(new Error('Map needs an internet connection.'));};
+      document.head.appendChild(s);
+    });
+    return gmReady;
+  }
+  const DARK=[
+    {elementType:'geometry',stylers:[{color:'#1b1b1b'}]},
+    {elementType:'labels.text.fill',stylers:[{color:'#8c8c8c'}]},
+    {elementType:'labels.text.stroke',stylers:[{color:'#1b1b1b'}]},
+    {featureType:'administrative',elementType:'geometry',stylers:[{color:'#333333'}]},
+    {featureType:'road',elementType:'geometry',stylers:[{color:'#2b2b2b'}]},
+    {featureType:'road.highway',elementType:'geometry',stylers:[{color:'#3a3a3a'}]},
+    {featureType:'water',elementType:'geometry',stylers:[{color:'#0d1a20'}]},
+    {featureType:'poi',stylers:[{visibility:'off'}]},
+    {featureType:'transit',stylers:[{visibility:'off'}]}
+  ];
+  const LIGHT=[{featureType:'poi.business',stylers:[{visibility:'off'}]},{featureType:'transit',stylers:[{visibility:'off'}]}];
+  const ll=a=>({lat:+a[0],lng:+a[1]});
+  // Same rule as dark() in the app script (which is not reachable from here).
+  const dark=()=>{const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);};
+
+  /* An HTML element pinned to a coordinate (Leaflet divIcon / circleMarker). */
+  let HtmlPin=null;
+  function pinClass(gm){
+    if(HtmlPin)return HtmlPin;
+    HtmlPin=class extends gm.OverlayView{
+      constructor(pos,el,ax,ay){super();this.pos=pos;this.el=el;this.ax=ax;this.ay=ay;}
+      onAdd(){this.getPanes().overlayMouseTarget.appendChild(this.el);gm.OverlayView.preventMapHitsAndGesturesFrom(this.el);}
+      draw(){const pr=this.getProjection();const p=pr&&pr.fromLatLngToDivPixel(this.pos);if(!p)return;this.el.style.left=(p.x-this.ax)+'px';this.el.style.top=(p.y-this.ay)+'px';}
+      onRemove(){this.el.remove();}
+    };
+    return HtmlPin;
+  }
+
+  class Layer{
+    constructor(){this._map=null;this._click=[];this._popup=null;}
+    addTo(m){m._add(this);return this;}
+    on(ev,fn){if(ev==='click')this._click.push(fn);return this;}
+    bindPopup(html){this._popup=html;this._click.push(()=>this.openPopup());return this;}
+    openPopup(){if(this._popup!=null&&this._map)this._map._openPopup(this._popup,this._anchor());return this;}
+    _fire(){this._click.forEach(fn=>{try{fn();}catch(e){}});}
+  }
+  class Pin extends Layer{
+    constructor(latlng,make,ax,ay){super();this.ll=ll(latlng);this._make=make;this.ax=ax;this.ay=ay;this.o=null;}
+    _anchor(){return this.ll;}
+    _attach(m,gm){const el=this._make();el.classList.add('gpin');el.addEventListener('click',e=>{e.stopPropagation();this._fire();});const P=pinClass(gm);this.o=new P(new gm.LatLng(this.ll),el,this.ax,this.ay);this.o.setMap(m.g);}
+    _detach(){if(this.o){this.o.setMap(null);this.o=null;}}
+  }
+  class Line extends Layer{
+    constructor(pts,o){super();this.pts=pts.map(ll);this.opt=o||{};this.o=null;}
+    _anchor(){return this.pts[0];}
+    _attach(m,gm){const o=this.opt,w=o.weight||3,dashed=!!o.dashArray;
+      this.o=new gm.Polyline({path:this.pts,map:m.g,clickable:false,strokeColor:o.color||'#0E7C4A',strokeWeight:w,strokeOpacity:dashed?0:(o.opacity||1),
+        icons:dashed?[{icon:{path:'M 0,-1 0,1',strokeOpacity:1,strokeColor:o.color||'#0E7C4A',scale:w},offset:'0',repeat:(w*4)+'px'}]:[]});}
+    _detach(){if(this.o){this.o.setMap(null);this.o=null;}}
+  }
+
+  class GMap{
+    constructor(el,opts){
+      this._el=el;this._opts=opts||{};this._layers=new Set();this._queue=[];this._idleQueue=[];this._idle=false;this._click=[];this.g=null;this._iw=null;
+      live.add(this);
+      loadGoogle().then(gm=>{
+        if(!this._el.isConnected&&!live.has(this))return;
+        // Google cannot build further maps once it has rejected the key.
+        if(authFailed){msgInto(this._el,'Google Maps rejected the API key. Enable the Maps JavaScript API for this key in Google Cloud Console.');return;}
+        this._gm=gm;
+        this.g=new gm.Map(this._el,{center:{lat:10.0,lng:76.3},zoom:9,minZoom:this._opts.minZoom||5,disableDefaultUI:true,clickableIcons:false,
+          gestureHandling:'greedy',keyboardShortcuts:false,styles:dark()?DARK:LIGHT,backgroundColor:dark()?'#1b1b1b':'#ebebeb'});
+        this._iw=new gm.InfoWindow();
+        // Popups wait for the first 'idle' (map fully drawn); it never fires if Google rejects the key.
+        gm.event.addListenerOnce(this.g,'idle',()=>{this._idle=true;const q=this._idleQueue;this._idleQueue=[];q.forEach(fn=>fn());});
+        this.g.addListener('click',()=>{this._iw.close();this._click.forEach(fn=>{try{fn();}catch(e){}});});
+        if(authFailed)msgInto(this._el,'Google Maps rejected the API key. Enable the Maps JavaScript API for this key in Google Cloud Console.');
+        this._layers.forEach(l=>l._attach(this,gm));
+        const q=this._queue;this._queue=[];q.forEach(fn=>fn());
+      }).catch(e=>{if(live.has(this))msgInto(this._el,e.message);});
+    }
+    _run(fn){if(this.g)fn();else this._queue.push(fn);return this;}
+    _add(l){l._map=this;this._layers.add(l);if(this.g)l._attach(this,this._gm);}
+    _openPopup(html,pos){this._run(()=>{
+      const show=()=>{if(!this.g||authFailed)return;this._iw.setContent(html);this._iw.setPosition(pos);this._iw.setOptions({pixelOffset:new this._gm.Size(0,-18)});this._iw.open({map:this.g});};
+      if(this._idle)show();else this._idleQueue.push(show);
+    });}
+    removeLayer(l){if(!l)return this;l._detach();l._map=null;this._layers.delete(l);return this;}
+    on(ev,fn){if(ev==='click')this._click.push(fn);return this;}
+    setView(c,z){return this._run(()=>{this.g.setCenter(ll(c));if(z!=null)this.g.setZoom(z);});}
+    fitBounds(pts,o){o=o||{};return this._run(()=>{
+      if(!pts||!pts.length)return;
+      const b=new this._gm.LatLngBounds();pts.forEach(p=>b.extend(ll(p)));
+      const pad=Array.isArray(o.padding)?o.padding[0]:(o.padding||40);
+      this.g.fitBounds(b,{top:pad,right:pad,bottom:pad,left:pad});
+      if(o.maxZoom)this._gm.event.addListenerOnce(this.g,'idle',()=>{if(this.g.getZoom()>o.maxZoom)this.g.setZoom(o.maxZoom);});
+    });}
+    invalidateSize(){return this._run(()=>{if(this._gm.event)this._gm.event.trigger(this.g,'resize');});}
+    remove(){this._layers.forEach(l=>l._detach());this._layers.clear();if(this._iw)this._iw.close();live.delete(this);this._el.innerHTML='';this.g=null;}
+  }
+
+  window.L={
+    map:(el,opts)=>new GMap(el,opts),
+    divIcon:o=>o,
+    latLngBounds:pts=>pts,
+    marker:(latlng,o)=>{const ic=(o&&o.icon)||{},sz=ic.iconSize||[30,30],an=ic.iconAnchor||[sz[0]/2,sz[1]/2];
+      return new Pin(latlng,()=>{const el=document.createElement('div');el.className=ic.className||'';el.style.width=sz[0]+'px';el.style.height=sz[1]+'px';el.innerHTML=ic.html||'';return el;},an[0],an[1]);},
+    circleMarker:(latlng,o)=>{o=o||{};const r=o.radius||10;
+      return new Pin(latlng,()=>{const el=document.createElement('div');el.style.cssText='width:'+(2*r)+'px;height:'+(2*r)+'px;border-radius:50%;background:'+(o.fillColor||'#0E7C4A')+';opacity:'+(o.fillOpacity==null?.4:o.fillOpacity);return el;},r,r);},
+    polyline:(pts,o)=>new Line(pts,o)
+  };
+})();
+</script>
 <script>
 /* ============================================================================
    LIVE API LAYER. Active only inside the Android wrapper (window.AndroidApp.http), after sign-in.
@@ -1771,14 +1905,11 @@ OV.drawReport=async function(){
 };
 OV.setReport=function(k){repTab=k;$$('#repSeg button').forEach(x=>x.classList.toggle('on',x.dataset.c===k));window.drawReport();};
 
-/* ---------- Leaflet maps ---------- */
+/* ---------- maps (Google Maps) ---------- */
 function dark(){const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);}
 function mkMap(el){
-  if(typeof L==='undefined'){el.innerHTML='<div class="empty">Map tiles need an internet connection.</div>';return null;}
-  const m=L.map(el,{zoomControl:false,attributionControl:false,minZoom:5}).setView([10.0,76.3],9);
-  L.tileLayer(dark()?'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png':'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(m);
-  L.control.attribution({prefix:false,position:'bottomleft'}).addAttribution('© OpenStreetMap · © CARTO').addTo(m);
-  return m;
+  // Google Maps (see the maps script above). Google draws its own logo and terms, which must stay visible.
+  return L.map(el,{minZoom:5}).setView([10.0,76.3],9);
 }
 let lcars=[],fitted=false;
 function lmapInit(){

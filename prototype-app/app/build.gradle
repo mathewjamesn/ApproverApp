@@ -2,6 +2,19 @@ plugins {
     id 'com.android.application'
 }
 
+def mapsApiKey() {
+    def key = System.getenv('MAPS_API_KEY') ?: project.findProperty('MAPS_API_KEY')
+    if (!key) {
+        def shared = rootProject.file('../android/gradle.properties')
+        if (shared.exists()) {
+            def props = new Properties()
+            shared.withInputStream { props.load(it) }
+            key = props.getProperty('MAPS_API_KEY')
+        }
+    }
+    return key ?: ''
+}
+
 android {
     namespace 'com.gmt.approver.prototype'
     compileSdk 35
@@ -12,6 +25,9 @@ android {
         targetSdk 35
         versionCode = (project.findProperty('vc') ?: '1').toString().toInteger()
         versionName = (project.findProperty('vn') ?: '1.0').toString()
+        // Google Maps key, shared with the React Native app: MAPS_API_KEY environment variable or Gradle property,
+        // otherwise the value committed in ../android/gradle.properties.
+        manifestPlaceholders = [MAPS_API_KEY: mapsApiKey()]
     }
 
     signingConfigs {
