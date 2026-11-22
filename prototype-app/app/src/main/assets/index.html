@@ -346,6 +346,33 @@ a.ib{text-decoration:none;color:inherit}
 .vcap{position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#cbd5e1;font-size:13px}
 .vrow2{display:flex;align-items:center;gap:12px}
 .rating{font-weight:700}
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.cat{position:relative;overflow:hidden;text-align:left;background:var(--card);border-radius:24px;padding:16px 14px 14px;min-height:150px;box-shadow:var(--shadow),0 8px 20px rgba(0,0,0,.10);display:flex;flex-direction:column;gap:4px}
+.cat:active{transform:scale(.98)}
+.cat .ci{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;background:var(--c);color:#fff;margin-bottom:10px;box-shadow:0 6px 14px color-mix(in srgb,var(--c) 40%,transparent)}
+.cat b{font-family:var(--f-head);font-size:17px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.cat small{color:var(--muted);font-size:12px;line-height:1.3}
+.cat .ghost{position:absolute;right:-14px;bottom:-14px;color:var(--c);opacity:.09;pointer-events:none}
+.cat .go{position:absolute;right:12px;top:14px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--chip);color:var(--ink)}
+.cat .cb{position:absolute;right:12px;top:14px;min-width:28px;height:28px;padding:0 8px;border-radius:99px;display:grid;place-items:center;background:var(--lime);color:#000;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+.qrow{display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:2px 16px 4px;scrollbar-width:none}
+.qrow::-webkit-scrollbar{display:none}
+.qchip{flex:none;display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;border-radius:99px;background:var(--card);box-shadow:var(--shadow);font-size:13px;font-weight:600;white-space:nowrap}
+.qchip i{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--c);font-style:normal}
+.shero{display:flex;align-items:center;gap:14px;border-radius:22px;padding:16px;margin:4px 0 14px;background:color-mix(in srgb,var(--c) 14%,var(--card));box-shadow:var(--shadow)}
+.shero .ci{width:52px;height:52px;border-radius:18px;display:grid;place-items:center;background:var(--c);color:#fff;flex:none}
+.shero b{display:block;font-family:var(--f-head);font-size:18px;font-weight:800}
+.shero span{color:var(--muted);font-size:13px}
+.mlist{background:var(--card);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.mrow{display:flex;align-items:center;gap:14px;width:100%;text-align:left;padding:14px 14px;border-bottom:1px solid var(--line)}
+.mrow:last-child{border-bottom:0}
+.mrow:active{background:var(--chip)}
+.mrow .mi{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+.mrow .mt{flex:1;min-width:0}
+.mrow .mt b{display:block;font-size:15px;font-weight:700}
+.mrow .mt small{display:block;color:var(--muted);font-size:12.5px;margin-top:2px;line-height:1.3}
+.mrow .mb{font-size:11px;font-weight:800;background:var(--lime);color:#000;padding:2px 9px;border-radius:99px}
+.mrow .mc{color:var(--muted);flex:none;display:grid}
 .stl{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:16px 2px 8px}
 .stl:first-child{margin-top:20px}
 .tgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
@@ -424,8 +451,17 @@ a.btn.pri{color:var(--solid-ink)}
         <button class="kc" data-go="trips"><span>Trips today</span><b>1,384</b></button>
         <button class="kc" data-go="missed"><span>Missed today</span><b id="kMissed"></b></button>
       </div>
-      <div id="homeTiles"></div>
+      <div class="stl">Menu</div>
+      <div class="cats" id="homeCats"></div>
+      <div class="stl">Quick access</div>
+      <div class="qrow" id="homeQuick"></div>
     </div>
+  </section>
+
+  <!-- MENU SECTION -->
+  <section class="screen sub" id="s-sect">
+    <div class="bar sbar"><button class="ib" data-back aria-label="Back" data-ic="back"></button><div class="grow"><h1 id="sectTitle"></h1><div class="s" id="sectSub"></div></div></div>
+    <div class="body" id="sectBody" style="padding-top:6px"></div>
   </section>
 
   <!-- MAP -->
@@ -655,6 +691,7 @@ a.btn.pri{color:var(--solid-ink)}
 <script>
 /* ---------- icons ---------- */
 const P={
+ chev:'<path d="M9 5l7 7-7 7"/>',
  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
  map:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
  trips:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
@@ -759,7 +796,7 @@ const empty=(i,t)=>`<div class="empty">${ic(i)}${t}</div>`;
 hydrate(document);
 
 /* ---------- navigation ---------- */
-const SUB=['notify','pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail','locate','heat'];
+const SUB=['notify','pax','detail','dtrips','top','otp','fare','airport','search','city','reports','missed','track','verify','addon','addondetail','locate','heat','sect'];
 const stack=[];let current='home';
 function show(name,opts={}){
   closeMenu();
@@ -776,7 +813,7 @@ function show(name,opts={}){
 }
 const back=()=>show(stack.pop()||'home',{back:true});
 document.addEventListener('click',e=>{
-  const g=e.target.closest('[data-go]');if(g){stack.length=0;show(g.dataset.go);return;}
+  const g=e.target.closest('[data-go]');if(g){if(!g.hasAttribute('data-keep'))stack.length=0;show(g.dataset.go);return;}
   if(e.target.closest('[data-back]')) back();
 });
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('on'),1900);}
@@ -802,15 +839,48 @@ $('#greet').textContent=(hr<12?'Good morning':'Good afternoon')+' · Tue, 17 Nov
 const TOTAL_CARS=CITIES.reduce((a,c)=>a+c[1],0),TOTAL_AUTOS=CITIES.reduce((a,c)=>a+c[2],0);
 $('#kOnline').textContent=(TOTAL_CARS+TOTAL_AUTOS).toLocaleString('en-IN');
 $('#kMissed').textContent=MISSED.length;
-const TILES=[
- ['Approvals',[['Pending Drivers','clock','verifyPending','var(--info)',()=>DRIVERS.filter(d=>d.status==='Pending'||d.status==='Document Pending').length],['Vehicle Add-on','car','addon','var(--auto)',()=>ADDONS.length],['Rejected Drivers','ban','verifyRej','var(--bad)']]],
- ['Operations',[['Live Map','map','map','var(--brand)',1],['Trips','trips','trips','var(--info)'],['Drivers','drivers','drivers','var(--ok)'],['Passengers','users','pax','var(--rental)'],['Locate Driver','map','locate','var(--warn)',1]]],
- ['Insights',[['Online by City','building','city','var(--resv)',1],['Top Online Drivers','trophy','top','var(--warn)',1],['Reports','chart','reports','var(--accent)'],['Missed Requests','alert','missed','var(--bad)',1],['Heat Map','chart','heat','#F97316',1]]],
- ['Tools',[['Get OTP','key','otp','#6366F1'],['Fare Multiplier','gauge','fare','var(--auto)'],['Airport Multiplier','plane','airport','#06B6D4'],['Send Notification','send','notify','#EC4899']]]];
-function drawHome(){$('#homeTiles').innerHTML=TILES.map(([h,items])=>`<div class="stl">${h}</div><div class="tgrid">${items.map(t=>{
-  const act=/^verify/.test(t[2]||'')?`data-vtab="${t[2]}"`:t[2]?`data-go="${t[2]}"`:'data-stub';
-  const bd=typeof t[4]==='function'?t[4]():t[4]?'NEW':'';
-  return `<button class="tile" style="--c:${t[3]}" ${act}>${bd!==''?`<span class="nw">${bd}</span>`:''}<span class="ico">${ic(t[1],22)}</span>${t[0]}</button>`;}).join('')}</div>`).join('');}
+const pendingDrv=()=>DRIVERS.filter(d=>d.status==='Pending'||d.status==='Document Pending').length;
+/* item: [title, icon, target, colour, description, badge (function, or 1 for NEW)] */
+const SECTS=[
+ {k:'approvals',t:'Approvals',ic:'check',c:'#F59E0B',sub:'Verify drivers and vehicles',items:[
+  ['Pending Drivers','clock','verifyPending','var(--info)','New drivers waiting for verification',pendingDrv],
+  ['Vehicle Add-on','car','addon','var(--auto)','Approve extra vehicles added by drivers',()=>ADDONS.length],
+  ['Rejected Drivers','ban','verifyRej','var(--bad)','Review rejected applications']]},
+ {k:'operations',t:'Operations',ic:'map',c:'#0E9F6E',sub:'Live fleet, trips and people',items:[
+  ['Live Map','map','map','var(--brand)','See online drivers on the map'],
+  ['Trips','trips','trips','var(--info)','Browse and track every trip'],
+  ['Drivers','drivers','drivers','var(--ok)','Search and manage drivers'],
+  ['Passengers','users','pax','var(--rental)','Look up a passenger by mobile number'],
+  ['Locate Driver','map','locate','var(--warn)','Find a driver on the map by mobile number',1]]},
+ {k:'reports',t:'Reports',ic:'chart',c:'#2563EB',sub:'Numbers and insights',items:[
+  ['Online by City','building','city','var(--resv)','Drivers online in each city'],
+  ['Top Online Drivers','trophy','top','var(--warn)','Most active drivers this month'],
+  ['Reports','chart','reports','var(--accent)','Registrations and trip summary'],
+  ['Missed Requests','alert','missed','var(--bad)','Passengers who could not get a ride'],
+  ['Heat Map','chart','heat','#F97316','Where ride demand is highest',1]]},
+ {k:'tools',t:'Tools',ic:'tools',c:'#7C3AED',sub:'Utilities for the support team',items:[
+  ['Get OTP','key','otp','#6366F1','Fetch the OTP for a ride'],
+  ['Fare Multiplier','gauge','fare','var(--auto)','Adjust fare multipliers'],
+  ['Airport Multiplier','plane','airport','#06B6D4','Set the airport fare multiplier'],
+  ['Send Notification','send','notify','#EC4899','Push a message to all drivers or passengers']]}];
+const itemBadge=t=>typeof t[5]==='function'?(t[5]()||''):t[5]?'NEW':'';
+const itemAct=(t,keep)=>/^verify/.test(t[2])?`data-vtab="${t[2]}"`:`data-go="${t[2]}"${keep?' data-keep':''}`;
+function drawHome(){
+  $('#homeCats').innerHTML=SECTS.map(c=>{
+    const n=c.k==='approvals'?pendingDrv()+ADDONS.length:0;
+    return `<button class="cat" style="--c:${c.c}" data-sect="${c.k}"><span class="ci">${ic(c.ic,24)}</span>${n?`<span class="cb">${n}</span>`:`<span class="go">${ic('chev',14)}</span>`}<b>${c.t}</b><small>${c.sub}</small><span class="ghost">${ic(c.ic,96)}</span></button>`;}).join('');
+  const quick=[['Live Map','map','map'],['Trips','trips','trips'],['Locate Driver','map','locate'],['Missed Requests','alert','missed'],['Heat Map','chart','heat'],['Send Notification','send','notify']];
+  const find=n=>SECTS.flatMap(c=>c.items).find(t=>t[2]===n);
+  $('#homeQuick').innerHTML=quick.map(q=>{const t=find(q[2]);return `<button class="qchip" style="--c:${t[3]}" ${itemAct(t,false)}><i>${ic(q[1],15)}</i>${q[0]}</button>`;}).join('');
+}
+let sectKey='approvals';
+function drawSect(k){
+  const c=SECTS.find(x=>x.k===k)||SECTS[0];sectKey=c.k;
+  $('#sectTitle').textContent=c.t;$('#sectSub').textContent=c.sub;
+  $('#sectBody').innerHTML=`<div class="shero" style="--c:${c.c}"><span class="ci">${ic(c.ic,28)}</span><div><b>${c.t}</b><span>${c.items.length} option${c.items.length===1?'':'s'}</span></div></div>
+   <div class="mlist">${c.items.map(t=>{const bd=itemBadge(t);return `<button class="mrow" style="--c:${t[3]}" ${itemAct(t,true)}><span class="mi">${ic(t[1],22)}</span><span class="mt"><b>${t[0]}</b><small>${t[4]}</small></span>${bd!==''?`<span class="mb">${bd}</span>`:''}<span class="mc">${ic('chev',18)}</span></button>`;}).join('')}</div>`;
+}
+document.addEventListener('click',e=>{const x=e.target.closest('[data-sect]');if(x){drawSect(x.dataset.sect);show('sect');}});
 drawHome();
 document.addEventListener('click',e=>{const v=e.target.closest('[data-vtab]');if(v){gotoDrivers({verifyPending:'Pending',verifyDoc:'Document Pending',verifyRej:'Rejected'}[v.dataset.vtab]);}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-stub]'))toast('Not part of this prototype');});
