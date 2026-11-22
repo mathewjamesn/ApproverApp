@@ -395,6 +395,16 @@ a.ib{text-decoration:none;color:inherit}
 .spin{animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .btn.ok{background:var(--lime);color:#000;font-weight:800}
+.trkwrap{position:relative;flex:1;display:flex;min-height:200px}
+.tmapbtns{position:absolute;right:12px;top:12px;z-index:7;display:flex;flex-direction:column;gap:8px}
+.tmapbtns .ib{background:var(--card);color:var(--ink);box-shadow:0 3px 10px rgba(0,0,0,.28)}
+.thandle{display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;margin:-6px 0 8px;padding:2px 0 0}
+.thandle .gbar{width:38px;height:4px;border-radius:99px;background:var(--line)}
+.thandle .tl{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--muted);max-width:100%}
+.thandle .tl span.t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thandle .ar{display:grid;transition:transform .2s}
+.trkcard.min{max-height:none;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
+.trkcard.min .tbody{display:none}
 .tactions{display:flex;gap:8px;margin-top:12px}
 .tactions .btn{flex:1;padding:11px 8px;font-size:13px}
 a.btn{text-decoration:none;color:inherit}
@@ -545,7 +555,8 @@ a.btn.pri{color:var(--solid-ink)}
       <div class="grow"><h1>Track driver location</h1><div class="s" id="trkName"></div></div>
       <span class="timerb" id="trkTimer"></span>
       <button class="ib" id="trkRefresh" aria-label="Refresh now" data-ic="refresh"></button></div>
-    <div class="mapwrap trkmap" id="trkMap"></div>
+    <div class="trkwrap"><div class="mapwrap trkmap" id="trkMap"></div>
+      <div class="tmapbtns"><button class="ib" id="trkFull" aria-label="Show full map" data-ic="expand"></button><button class="ib" id="trkFit" aria-label="Fit both locations" data-ic="fit"></button></div></div>
     <div class="trkcard" id="trkCard"></div>
   </section>
 
@@ -692,6 +703,8 @@ a.btn.pri{color:var(--solid-ink)}
 /* ---------- icons ---------- */
 const P={
  chev:'<path d="M9 5l7 7-7 7"/>',
+ expand:'<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+ fit:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/>',
  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/>',
  map:'<path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/>',
  trips:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h4"/>',
@@ -1757,6 +1770,13 @@ function tripKind(r){
   return 'Normal';
 }
 const tm=v=>{if(!v)return null;const d=new Date(v);return isNaN(d)?esc(v):d;};
+/* pickup distance in km: pickupDistance first, then any field whose name has pickup + distance (also inside nested objects); a value over 200 is taken as metres */
+function pickupFrom(r){
+  const scan=o=>{if(!o||typeof o!=='object')return 0;for(const [k,v] of Object.entries(o)){if(/pick\s*-?up.*dist|dist.*pick\s*-?up/i.test(k)&&v!=null&&typeof v!=='object'){const n=num(v);if(n>0)return n;}}return 0;};
+  let n=num(r.pickupDistance)||scan(r);
+  if(!n)for(const v of Object.values(r)){if(v&&typeof v==='object'&&!Array.isArray(v)){n=scan(v);if(n)break;}}
+  return n>200?n/1000:n;
+}
 function mapTrip(r){
   let st=String(r.tripStatus||'').trim();
   if(!st){const c=new Date(r.createdOn||r.tripStartDate||0).getTime();if(c&&Date.now()-c<=864e5)st='DriverAccepted';}
@@ -1764,13 +1784,13 @@ function mapTrip(r){
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
-  const pk0=num(r.pickupDistance);
+  const pk0=pickupFrom(r);
   const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv/i.test(st)&&!/cancel|reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
     to:esc(type==='Rental'&&!r.toLocation?'Hourly package':(r.toLocation||'—')),km:+(num(r.finalDistanceInKilometers)||num(r.distanceInKilometers)).toFixed(1),
-    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r,live:true,pk:+pk0.toFixed(1),rentalRows:rentalRowsFrom(r),reason:reasonFrom(r),
+    status:st,date,fare,est,otp:esc(r.otp||'—'),pay:esc(r.passengerOptedPaymentMode||'—'),raw:r,live:true,pk:+pk0.toFixed(2),rentalRows:rentalRowsFrom(r),reason:reasonFrom(r),
     tm:{acc:tm(r.tripAcceptDate),start:tm(r.tripStartDate),canc:tm(r.tripCancelledDate||r.cancelledDate||r.cancelledOn||r.cancellationTime),end:tm(r.tripEndDate)}};
 }
 function mergeTrips(list){arr(list).forEach(r=>{const t=mapTrip(r);const i=TRIPS.findIndex(x=>x.id===t.id);if(i>=0)TRIPS[i]=t;else TRIPS.push(t);});TRIPS.sort((a,b)=>b.date-a.date);}
@@ -2043,6 +2063,11 @@ OV.trkRefresh=async function(manual){
     trk.updated=new Date();}catch(e){if(manual)oops(e);}
   trk.spin=false;trk.left=TRK_SECONDS;drawTrack();
 };
+function trkFit(delay){const m=trk&&trk.map,pts=trk&&trk.pts;if(!m||!pts||!pts.length)return;
+  setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[60,60],maxZoom:16}):m.setView(pts[0],15);},delay||0);}
+document.addEventListener('click',e=>{if(!trk||!trk.live)return;
+  if(e.target.closest('#trkHandle,#trkFull')){trk.min=!trk.min;drawTrack();trkFit(260);}
+  else if(e.target.closest('#trkFit'))trkFit(0);});
 OV.drawTrack=function(){
   if(!trk||!trk.live)return;
   const {D,P,d,t}=trk,rt=D&&P?trk.route:null,dist=D&&P?(rt&&rt.dist?rt.dist:haversine(D,P)):null,dur=dist==null?null:(rt&&rt.dur?rt.dur:dist/7);
@@ -2053,19 +2078,22 @@ OV.drawTrack=function(){
     if(D){trk.layers.push(L.marker([D.lat,D.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin drv" style="position:relative;left:auto;top:auto;margin:0">${ic('car',22)}</div>`})}).addTo(m));pts.push([D.lat,D.lon]);}
     if(D&&P)trk.layers.push(rt?L.polyline(rt.pts,{color:'#0E7C4A',weight:5}).addTo(m):L.polyline([[D.lat,D.lon],[P.lat,P.lon]],{color:'#0E7C4A',weight:4,dashArray:'8 8'}).addTo(m));
     if(D&&P&&rt)rt.pts.forEach(q=>pts.push(q));
-    if(pts.length&&(!trk.fit||(D&&!trk.fitD))){trk.fit=true;if(D)trk.fitD=true;setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:16}):m.setView(pts[0],15);},80);}
+    trk.pts=pts;
+    if(pts.length&&(!trk.fit||(D&&!trk.fitD))){trk.fit=true;if(D)trk.fitD=true;trkFit(80);}
   }
   const url=D&&P?`https://www.google.com/maps/dir/?api=1&origin=${D.lat.toFixed(6)},${D.lon.toFixed(6)}&destination=${P.lat.toFixed(6)},${P.lon.toFixed(6)}&travelmode=driving`
     :P?`https://www.google.com/maps/search/?api=1&query=${P.lat},${P.lon}`:'';
   const na='<span class="muted">Unavailable</span>';
-  $('#trkCard').innerHTML=`<div class="trow"><span style="display:flex;align-items:center;gap:8px;font-weight:700"><span class="pulse" style="background:var(--ok)"></span>Live tracking <span class="muted" style="font-weight:500">· updates in <b id="trkCd" style="color:var(--ink)">${trk.left}s</b></span></span>${badge(D?'Located':'No location',D?'var(--ok)':'var(--warn)')}</div>
+  $('#trkCard').classList.toggle('min',!!trk.min);
+  const sum=d.name+' · '+(dist==null?'locating…':fmtDist(dist)+(rt?' by road':' straight line'));
+  $('#trkCard').innerHTML=`<button class="thandle" id="trkHandle" aria-label="${trk.min?'Show details':'Hide details'}"><i class="gbar"></i><span class="tl"><span class="ar" style="transform:rotate(${trk.min?-90:90}deg)">${ic('chev',16)}</span><span class="t">${trk.min?sum:'Hide details'}</span></span></button><div class="tbody"><div class="trow"><span style="display:flex;align-items:center;gap:8px;font-weight:700"><span class="pulse" style="background:var(--ok)"></span>Live tracking <span class="muted" style="font-weight:500">· updates in <b id="trkCd" style="color:var(--ink)">${trk.left}s</b></span></span>${badge(D?'Located':'No location',D?'var(--ok)':'var(--warn)')}</div>
    <div class="drow" style="margin-top:12px"><div class="avatar">${initials(d.name)}</div><div style="flex:1;min-width:0"><div class="dname" style="font-size:16px">${d.name}</div><div class="muted" style="font-size:13px">${fmtPhone(d.phone)} · ${d.cat}</div></div>${contactBtns(d.phone,d.name)}</div>
    <div class="tl" style="margin:14px 0 2px"><div class="p"><i class="e"></i></div><div class="t"><div style="white-space:normal"><b>Pickup location</b><br><span class="muted">${t.from}</span></div></div></div>
-   <div class="eta"><div><small>Distance to location</small><b>${dist==null?'—':fmtDist(dist)}</b></div><div><small>Time to reach</small><b>${dur==null?'—':fmtDur(dur)}</b></div></div>
+   <div class="eta"><div><small>Distance ${rt?'by road':'(straight line)'}</small><b>${dist==null?'—':fmtDist(dist)}</b></div><div><small>Time to reach</small><b>${dur==null?'—':fmtDur(dur)}</b></div></div>
    <div class="row" style="border:0;padding:4px 0"><span class="l">Driver coords</span><span class="r num">${D?D.lat.toFixed(5)+', '+D.lon.toFixed(5):'—'}</span></div>
    <div class="row" style="padding:8px 0 0"><span class="l">Last updated</span><span class="r">${trk.updated.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</span></div>
    <div class="tactions"><button class="btn" id="trkRefBtn">${trk.spin?`<span class="spin" style="display:inline-flex">${ic('refresh',18)}</span>Updating…`:`${ic('refresh',18)}<span id="trkRefLbl">Refresh (${trk.left}s)</span>`}</button>
-   ${url?`<a class="btn pri" href="${url}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a>`:''}</div>`;
+   ${url?`<a class="btn pri" href="${url}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a>`:''}</div></div>`;
   $('#trkRefBtn').onclick=()=>trkRefresh(true);
   $('#trkTimer').textContent='⏱ '+trk.left+'s';
 };
