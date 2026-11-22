@@ -2240,7 +2240,8 @@ function heatDraw(){
   if(heatMap){
     heatLayers.forEach(x=>heatMap.removeLayer(x));heatLayers=[];
     heatPts.forEach(p=>{const t=p.w/mx,col='hsl('+Math.round(55-55*t)+',100%,50%)';
-      const c=L.circleMarker([p.lat,p.lon],{radius:16+24*t,stroke:false,fillColor:col,fillOpacity:.4}).addTo(heatMap);
+      const sz=Math.round(24+8*t);
+      const c=L.marker([p.lat,p.lon],{icon:L.divIcon({className:'lcar',iconSize:[sz,sz],iconAnchor:[sz/2,sz/2],html:`<div style="width:${sz}px;height:${sz}px;border-radius:50%;display:grid;place-items:center;background:var(--solid);color:var(--solid-ink);border:2.5px solid ${col};box-shadow:0 2px 6px rgba(0,0,0,.35)">${ic('users',Math.round(sz*.55))}</div>`})}).addTo(heatMap);
       c.bindPopup('<b>'+esc(p.name||'Hot spot')+'</b><br>'+p.w+' · <a href="'+gmapsUrl(p)+'" target="_blank" rel="noopener">Open in Maps</a>');heatLayers.push(c);});
     setTimeout(()=>{heatMap.invalidateSize();if(heatPts.length)heatMap.fitBounds(L.latLngBounds(heatPts.map(p=>[p.lat,p.lon])),{padding:[50,50],maxZoom:14});},80);
   }
@@ -2266,7 +2267,7 @@ document.addEventListener('click',e=>{if(e.target.closest('[data-go="heat"]')){h
 let locMap=null,locMark=null;
 function locDraw(P,p,raw,msg){
   const d=DRIVERS.find(x=>x.phone===p),nm=d?d.name:String(pick(raw||{},['driverName','name'])||'Driver');
-  const when=raw?pick(raw,['updatedOn','lastUpdatedOn','lastUpdated','locationUpdatedOn','timestamp','modifiedOn','createdOn']):null;
+  const when=raw?pick(raw,['lastLocationUpdateTimeInUTC','updatedOn','lastUpdatedOn','lastUpdated','locationUpdatedOn','timestamp','modifiedOn','createdOn']):null;
   let wd=when?new Date(when):null;if(wd&&isNaN(wd))wd=null;
   const st=P&&P.status?String(P.status):'';
   const url=P?'https://www.google.com/maps/search/?api=1&query='+P.lat.toFixed(6)+','+P.lon.toFixed(6):'';
@@ -2274,6 +2275,7 @@ function locDraw(P,p,raw,msg){
    <div class="drow" style="margin-top:12px"><div class="avatar">${initials(nm)}</div><div style="flex:1;min-width:0"><div class="dname" style="font-size:16px">${esc(nm)}</div><div class="muted" style="font-size:13px">${fmtPhone(p)}${d?' · '+d.cat:''}</div></div>${contactBtns(p,nm)}</div>
    <div class="row" style="border:0;padding:12px 0 4px"><span class="l">Coordinates</span><span class="r num">${P.lat.toFixed(5)}, ${P.lon.toFixed(5)}</span></div>
    ${wd?`<div class="row" style="padding:8px 0 0"><span class="l">Last updated</span><span class="r">${fmtDate(wd)}</span></div>`:''}
+   ${raw&&(raw.isBusy!=null||raw.isBooked!=null)?`<div class="row" style="padding:8px 0 0"><span class="l">Availability</span><span class="r">${raw.isBusy?'On a trip':raw.isBooked?'Booked':raw.isReadyForRide?'Ready for a ride':'Not ready'}</span></div>`:''}
    <div class="tactions"><button class="btn" id="locRef">${ic('refresh',18)}Refresh</button><a class="btn pri" href="${url}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a></div>`
    :`<div class="err" style="margin:0">${esc(msg)}</div>`)+(raw&&typeof raw==='object'&&!P?`<details style="margin-top:12px"><summary class="muted" style="font-size:12px">Response fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">${esc(JSON.stringify(raw,null,1).slice(0,1500))}</pre></details>`:'');
   const rb=$('#locRef');if(rb)rb.onclick=()=>locateDriver(p);
@@ -2284,9 +2286,18 @@ async function locateDriver(p){
   $('#locCard').innerHTML=empty('search','Locating…');
   if(!locMap)locMap=mkMap($('#locMap'));
   let raw=null,P=null,msg='';
-  try{raw=window.LIVE?await GET('/Driver/'+p+'/LocationDetails'):{latitude:9.9816,longitude:76.2999,status:'Online'};
-    P=pos(Array.isArray(raw)?raw[0]:raw);if(!P)msg='No location is available for '+fmtPhone(p)+'. The driver may be offline or has not shared a location yet.';}
-  catch(e){msg=e.status===404?'No driver found with '+fmtPhone(p)+'.':e.message;}
+  let fail=null;
+  try{
+    if(!window.LIVE)raw={latitude:9.9816,longitude:76.2999,status:'Online'};
+    else{
+      try{raw=await GET('/Driver/'+p+'/LocationDetails');}
+      catch(e1){fail=e1;
+        // the Driver route can fail for a driver the Live Map can still locate, so try the customer-care route too
+        try{raw=await GET('/CustomerCare/'+p+'/LocationDetails');fail=null;}catch(e2){if(e1.status===404||e2.status!==404)fail=e1.status===404?e2:e1;}}
+    }
+    if(!fail){P=pos(Array.isArray(raw)?raw[0]:raw);if(!P)msg='No location is available for '+fmtPhone(p)+'. The driver may be offline or has not shared a location yet.';}
+  }catch(e){fail=e;}
+  if(fail){msg=fail.status===404?'No driver found with '+fmtPhone(p)+'.':'The server could not locate this driver ('+(fail.status?'HTTP '+fail.status+': ':'')+(fail.message||'error')+').';raw=fail.data&&typeof fail.data==='object'?fail.data:{error:fail.message,status:fail.status};}
   if(Array.isArray(raw))raw=raw[0];
   if(locMap){
     if(locMark){locMap.removeLayer(locMark);locMark=null;}
