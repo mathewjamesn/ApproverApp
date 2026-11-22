@@ -1953,21 +1953,37 @@ OV.openTrack=function(id){
   clearInterval(trkTimer);
   trkTimer=setInterval(()=>{if(current!=='track'){clearInterval(trkTimer);return;}trk.left--;if(trk.left<=0)trkRefresh(false);else updateTimers();},1000);
 };
+/* Road route from the same OSRM server the earlier GMT Approver app used. No sign-in token is sent to it. */
+const OSRM='https://pikmecontainerapp.politemushroom-8a010def.southindia.azurecontainerapps.io/route/v1/driving/';
+const rawGet=url=>new Promise((res,rej)=>{const id=++rid;waits[id]=(st,b)=>{if(st>=200&&st<300)res(parse(b));else rej({status:st});};
+  window.AndroidApp.http(id,'GET',url,'','');setTimeout(()=>rej({status:0}),9000);});
+async function osrmRoute(D,P){
+  const one=async(a,b,c,d)=>{const j=await rawGet(OSRM+a+','+b+';'+c+','+d+'?overview=full&geometries=geojson');
+    const r=j&&j.routes&&j.routes[0];if(!r)throw 0;
+    const co=r.geometry&&r.geometry.coordinates;
+    return {pts:Array.isArray(co)?co.map(q=>[q[1],q[0]]):[],dist:num(r.distance!=null?r.distance:r.legs&&r.legs[0]&&r.legs[0].distance),dur:num(r.duration!=null?r.duration:r.legs&&r.legs[0]&&r.legs[0].duration)};};
+  try{return await one(D.lon,D.lat,P.lon,P.lat);}catch(e){try{return await one(D.lat,D.lon,P.lat,P.lon);}catch(e2){return null;}}
+}
 OV.trkRefresh=async function(manual){
   if(!trk||!trk.live||trk.spin)return;trk.spin=true;trk.left=TRK_SECONDS;drawTrack();
-  try{const p=await fetchPos(trk.d.phone);if(p){trk.D={lat:p.lat,lon:p.lon};trk.dstat=p.status;}trk.updated=new Date();}catch(e){if(manual)oops(e);}
+  try{const p=await fetchPos(trk.d.phone);
+    if(p){const moved=!trk.D||trk.D.lat!==p.lat||trk.D.lon!==p.lon;trk.D={lat:p.lat,lon:p.lon};trk.dstat=p.status;
+      // ask OSRM again only when the driver has moved (or there is no route yet)
+      if(trk.P&&(moved||!trk.route)){const r=await osrmRoute(trk.D,trk.P);trk.route=r&&r.pts.length>1?r:null;}}
+    trk.updated=new Date();}catch(e){if(manual)oops(e);}
   trk.spin=false;trk.left=TRK_SECONDS;drawTrack();
 };
 OV.drawTrack=function(){
   if(!trk||!trk.live)return;
-  const {D,P,d,t}=trk,dist=D&&P?haversine(D,P):null,dur=dist==null?null:dist/7;
+  const {D,P,d,t}=trk,rt=D&&P?trk.route:null,dist=D&&P?(rt&&rt.dist?rt.dist:haversine(D,P)):null,dur=dist==null?null:(rt&&rt.dur?rt.dur:dist/7);
   const m=trk.map;
   if(m){trk.layers.forEach(x=>m.removeLayer(x));trk.layers=[];
     const pts=[];
     if(P){trk.layers.push(L.marker([P.lat,P.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin pu" style="position:relative;left:auto;top:auto;margin:0">${ic('users',20)}</div>`})}).addTo(m));pts.push([P.lat,P.lon]);}
     if(D){trk.layers.push(L.marker([D.lat,D.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin drv" style="position:relative;left:auto;top:auto;margin:0">${ic('car',22)}</div>`})}).addTo(m));pts.push([D.lat,D.lon]);}
-    if(D&&P)trk.layers.push(L.polyline([[D.lat,D.lon],[P.lat,P.lon]],{color:'#0E7C4A',weight:4,dashArray:'8 8'}).addTo(m));
-    if(pts.length&&!trk.fit){trk.fit=true;setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:16}):m.setView(pts[0],15);},80);}
+    if(D&&P)trk.layers.push(rt?L.polyline(rt.pts,{color:'#0E7C4A',weight:5}).addTo(m):L.polyline([[D.lat,D.lon],[P.lat,P.lon]],{color:'#0E7C4A',weight:4,dashArray:'8 8'}).addTo(m));
+    if(D&&P&&rt)rt.pts.forEach(q=>pts.push(q));
+    if(pts.length&&(!trk.fit||(D&&!trk.fitD))){trk.fit=true;if(D)trk.fitD=true;setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[70,70],maxZoom:16}):m.setView(pts[0],15);},80);}
   }
   const url=D&&P?`https://www.google.com/maps/dir/?api=1&origin=${D.lat.toFixed(6)},${D.lon.toFixed(6)}&destination=${P.lat.toFixed(6)},${P.lon.toFixed(6)}&travelmode=driving`
     :P?`https://www.google.com/maps/search/?api=1&query=${P.lat},${P.lon}`:'';
