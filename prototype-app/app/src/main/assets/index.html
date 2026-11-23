@@ -957,7 +957,7 @@ function completedReport(){
    <div class="kpis">
     <div class="kpi"><small>Completed trips</small><b>${r.n.toLocaleString('en-IN')}</b><em>▲ ${r.d.slice(1)} vs prev.</em></div>
     <div class="kpi"><small>Trip revenue</small><b>${inr(rev)}</b></div>
-    <div class="kpi"><small>Avg. fare</small><b>₹${r.avg}</b></div>
+    <div class="kpi"><small>Avg. fare</small><b>₹${r.avg.toFixed(2)}</b></div>
     <div class="kpi"><small>Avg. distance</small><b>${r.km} km</b></div></div>
    <div class="mini-h" style="margin-top:4px">${r.sub}</div>${barChart(r.bars)}
    <div class="mini-h">By trip type</div>${stackedSplit(r.n,[['Normal',.78,'var(--normal)'],['Rental',.14,'var(--rental)'],['Reservation',.08,'var(--resv)']])}
@@ -1070,7 +1070,7 @@ function rentalRowsFrom(r){
     if(v==null||v===''||typeof v==='object')continue;
     if(typeof v==='boolean'&&/^is(rental|rentaltrip)$/i.test(k))continue;
     let val=typeof v==='boolean'?(v?'Yes':'No'):v;
-    if(typeof v==='number'&&/amount|fare|charge|price|cost|rate/i.test(k))val='₹'+v;
+    if(typeof v==='number'&&/amount|fare|charge|price|cost|rate/i.test(k))val='₹'+v.toFixed(2);
     else if(typeof v==='number'&&/km|kilomet|distance/i.test(k))val=v+' km';
     out.push([humanKey(k),escx(val)]);
   }
@@ -1101,7 +1101,7 @@ function tripCard(t,opts={}){
   const d=drv(t.driver),s=STATUS[t.status];
   const meta=t.type==='Rental'?`${ic('clock',16)}<span><b>Package</b> ${t.pkg}</span>`:t.type==='Reservation'?`${ic('cal',16)}<span><b>Reserved pickup</b> ${fmtDate(new Date(t.date.getTime()+36e5))}</span>`:'';
   return `<div class="trip" role="button" tabindex="0" data-trip="${t.id}">
-   <div class="trow"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${badge(s.t,s.c)}${typeTag(t.type)}${opts.current?'<span class="thisTag">Opened trip</span>':''}</div><span class="fare">${t.fare?'₹'+t.fare:'—'}</span></div>
+   <div class="trow"><div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">${badge(s.t,s.c)}${typeTag(t.type)}${opts.current?'<span class="thisTag">Opened trip</span>':''}</div><span class="fare">${t.fare?'₹'+(+t.fare).toFixed(2):'—'}</span></div>
    <div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${t.from}</div><div>${t.to}</div></div></div>
    ${meta?`<div class="tmeta">${meta}</div>`:''}
    ${timesHtml(t)}
@@ -1158,7 +1158,7 @@ function openDetail(id){
      ${row('Vehicle',d.model)}${row('Reg. no.',d.reg)}${row('Driver ID',cp('DRV'+d.phone+'A'))}</div>
    ${t.status==='DriverAccepted'?`<button class="btn ok" data-track="${t.id}" style="width:100%;margin-bottom:12px">${ic('map',18)}Track Driver Location</button>`:''}
    ${t.status==='PaymentComplete'&&t.type!=='Rental'?`<a class="btn pri" href="${routeUrl(t)}" target="_blank" rel="noopener" style="margin-bottom:12px">${ic('map',18)}Route Info · open in Google Maps</a>`:''}
-   <div class="sect"><div class="st">Fare breakdown</div>${row('Pickup distance',pickupKm(t)>0?pickupKm(t)+' km':'—')}${row('Initial estimate','₹'+t.est.toFixed(2))}${row(t.status==='PaymentComplete'?'Final fare':'Fare (estimated)','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+Math.round(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+Math.round(t.fare*.1).toFixed(2))}</div>
+   <div class="sect"><div class="st">Fare breakdown</div>${row('Pickup distance',pickupKm(t)>0?pickupKm(t)+' km':'—')}${row('Initial estimate','₹'+t.est.toFixed(2))}${row(t.status==='PaymentComplete'?'Final fare':'Fare (estimated)','<span style="color:var(--brand)">₹'+t.fare.toFixed(2)+'</span>')}${row('Payment mode',t.pay)}${row('Driver earnings','₹'+(t.fare*.85).toFixed(2))}${row('Platform charges','₹'+(t.fare*.1).toFixed(2))}</div>
    <div class="sect"><div class="st">Passenger</div>${row('Name',t.passenger)}${row('Phone',fmtPhone(t.pphone))}${row('Trip ID',cp(t.id))}</div>
    ${t.raw?`<details class="sect rawf"><summary>All trip fields (for support)</summary>${Object.entries(t.raw).filter(([k,v])=>v!==null&&v!==''&&typeof v!=='object').map(([k,v])=>row(humanKey(k),escx(v))).join('')}</details>`:''}`;
   show('detail');$('#detailBody').scrollTop=0;
@@ -1471,8 +1471,8 @@ function fareNote(){const on=$('#surgeOn').checked;$('#surgeNote').textContent=o
 function drawFare(){
   $('#fareList').innerHTML=FARE.map((f,i)=>`<div class="frow"><div class="trow"><span style="display:flex;align-items:center;gap:10px"><i class="dot" style="background:${FCOL[f[0]]};width:12px;height:12px"></i><span><b>${f[0]}</b><div class="muted" style="font-size:12px">Base fare ₹${f[2]}</div></span></span><span class="mult" id="fm${i}">${f[3].toFixed(1)}x</span></div>
    <input type="range" id="fr${i}" min="1" max="3" step="0.1" value="${f[3]}" aria-label="${f[0]} multiplier">
-   <div class="tfoot" style="margin-top:2px"><span>1.0x</span><span id="fe${i}" style="color:var(--ink);font-weight:600">Example fare ₹${Math.round(f[2]*f[3])}</span><span>3.0x</span></div></div>`).join('');
-  FARE.forEach((f,i)=>$('#fr'+i).oninput=e=>{f[3]=+e.target.value;$('#fm'+i).textContent=f[3].toFixed(1)+'x';$('#fe'+i).textContent='Example fare ₹'+Math.round(f[2]*f[3]);});
+   <div class="tfoot" style="margin-top:2px"><span>1.0x</span><span id="fe${i}" style="color:var(--ink);font-weight:600">Example fare ₹${(f[2]*f[3]).toFixed(2)}</span><span>3.0x</span></div></div>`).join('');
+  FARE.forEach((f,i)=>$('#fr'+i).oninput=e=>{f[3]=+e.target.value;$('#fm'+i).textContent=f[3].toFixed(1)+'x';$('#fe'+i).textContent='Example fare ₹'+(f[2]*f[3]).toFixed(2);});
   fareNote();
 }
 $('#surgeOn').onchange=fareNote;
