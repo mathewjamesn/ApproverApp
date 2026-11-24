@@ -1596,7 +1596,7 @@ drawReport();
         if(authFailed){msgInto(this._el,'Google Maps rejected the API key. Enable the Maps JavaScript API for this key in Google Cloud Console.');return;}
         this._gm=gm;
         this.g=new gm.Map(this._el,{center:{lat:10.0,lng:76.3},zoom:9,minZoom:this._opts.minZoom||5,disableDefaultUI:true,clickableIcons:false,
-          gestureHandling:'greedy',keyboardShortcuts:false,styles:dark()?DARK:LIGHT,backgroundColor:dark()?'#1b1b1b':'#ebebeb'});
+          gestureHandling:'greedy',keyboardShortcuts:false,styles:dark()&&!this._opts.light?DARK:LIGHT,backgroundColor:dark()&&!this._opts.light?'#1b1b1b':'#ebebeb'});
         this._iw=new gm.InfoWindow();
         // Popups wait for the first 'idle' (map fully drawn); it never fires if Google rejects the key.
         gm.event.addListenerOnce(this.g,'idle',()=>{this._idle=true;const q=this._idleQueue;this._idleQueue=[];q.forEach(fn=>fn());});
@@ -1618,7 +1618,7 @@ drawReport();
     fitBounds(pts,o){o=o||{};return this._run(()=>{
       if(!pts||!pts.length)return;
       const b=new this._gm.LatLngBounds();pts.forEach(p=>b.extend(ll(p)));
-      const pad=Array.isArray(o.padding)?o.padding[0]:(o.padding||40);
+      let pad=Array.isArray(o.padding)?o.padding[0]:(o.padding||40);const w=this._el.clientWidth,h=this._el.clientHeight;if(w&&h)pad=Math.max(16,Math.min(pad,Math.floor(Math.min(w,h)*.18)));
       this.g.fitBounds(b,{top:pad,right:pad,bottom:pad,left:pad});
       if(o.maxZoom)this._gm.event.addListenerOnce(this.g,'idle',()=>{if(this.g.getZoom()>o.maxZoom)this.g.setZoom(o.maxZoom);});
     });}
@@ -1997,9 +1997,9 @@ OV.setReport=function(k){repTab=k;$$('#repSeg button').forEach(x=>x.classList.to
 
 /* ---------- maps (Google Maps) ---------- */
 function dark(){const t=document.documentElement.dataset.theme;return t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);}
-function mkMap(el){
+function mkMap(el,light){
   // Google Maps (see the maps script above). Google draws its own logo and terms, which must stay visible.
-  return L.map(el,{minZoom:5}).setView([10.0,76.3],9);
+  return L.map(el,{minZoom:5,light:!!light}).setView([10.0,76.3],9);
 }
 let lcars=[],fitted=false;
 function lmapInit(){
@@ -2030,7 +2030,7 @@ OV.startMap=function(){
 };
 
 /* ---------- track driver ---------- */
-const _closeTrk=()=>{if(trk&&trk.map){try{trk.map.remove();}catch(e){}}};
+const _closeTrk=()=>{if(trk){if(trk.ro){try{trk.ro.disconnect();}catch(e){}}clearTimeout(trk.rt);if(trk.map){try{trk.map.remove();}catch(e){}}}};
 OV.openTrack=function(id){
   const t=TRIPS.find(x=>x.id===id),d=drv(t.driver),r=t.raw||{};
   const fa=r.fromAddress||{},pg=(r.passengerFromAddress&&r.passengerFromAddress.geoLocation)||{};
@@ -2038,7 +2038,7 @@ OV.openTrack=function(id){
   _closeTrk();
   trk={live:true,t,d,P:pla&&plo?{lat:pla,lon:plo}:null,D:null,left:TRK_SECONDS,spin:false,updated:new Date(),fit:false};
   $('#trkName').textContent=d.name;$('#trkMap').innerHTML='';show('track');
-  trk.map=mkMap($('#trkMap'));trk.layers=[];
+  trk.map=mkMap($('#trkMap'),true);trk.layers=[];
   trkRefresh(true);
   clearInterval(trkTimer);
   trkTimer=setInterval(()=>{if(current!=='track'){clearInterval(trkTimer);return;}trk.left--;if(trk.left<=0)trkRefresh(false);else updateTimers();},1000);
@@ -2063,8 +2063,22 @@ OV.trkRefresh=async function(manual){
     trk.updated=new Date();}catch(e){if(manual)oops(e);}
   trk.spin=false;trk.left=TRK_SECONDS;drawTrack();
 };
-function trkFit(delay){const m=trk&&trk.map,pts=trk&&trk.pts;if(!m||!pts||!pts.length)return;
-  setTimeout(()=>{m.invalidateSize();pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[60,60],maxZoom:16}):m.setView(pts[0],15);},delay||0);}
+/* A side-view car for the driver marker (replaces the round badge). */
+const CAR_SVG='<svg viewBox="0 0 64 34" width="58" height="31" style="display:block;filter:drop-shadow(0 3px 4px rgba(0,0,0,.45))" aria-hidden="true">'
+  +'<path d="M3 23v-5c0-3 2-4.5 5-5l8-1.5 6-6.5c1.2-1.3 2.8-2 4.6-2H42c1.8 0 3.4.7 4.600 2l6.400 6.500 5 1c3.200.7 4.400 2.500 4.400 5.500v5c0 1.700-1 2.500-2.500 2.500H5.500C4 25.500 3 24.700 3 23z" fill="#0E7C4A" stroke="#fff" stroke-width="1.8" stroke-linejoin="round"/>'
+  +'<path d="M24 8.500h8v6.500H19.500zM35 8.500h7.200c.8 0 1.400.3 1.900.9l4.400 5.600H35z" fill="#D7ECFF"/>'
+  +'<circle cx="17" cy="25" r="5.200" fill="#1b1b1b" stroke="#fff" stroke-width="1.600"/><circle cx="17" cy="25" r="1.900" fill="#9aa0a6"/>'
+  +'<circle cx="48" cy="25" r="5.200" fill="#1b1b1b" stroke="#fff" stroke-width="1.600"/><circle cx="48" cy="25" r="1.900" fill="#9aa0a6"/></svg>';
+function trkFitNow(){const m=trk&&trk.map,pts=trk&&trk.pts;if(!m||!pts||!pts.length)return;
+  m.invalidateSize();
+  requestAnimationFrame(()=>{if(!trk||trk.map!==m)return;pts.length>1?m.fitBounds(L.latLngBounds(pts),{padding:[50,50],maxZoom:17}):m.setView(pts[0],15);});}
+function trkFit(delay){
+  if(!trk||!trk.map)return;
+  // the map area changes size when the sheet is hidden or shown, so fit again once the layout has settled
+  if(!trk.ro&&typeof ResizeObserver!=='undefined'){trk.ro=new ResizeObserver(()=>{clearTimeout(trk.rt);trk.rt=setTimeout(trkFitNow,200);});trk.ro.observe($('#trkMap'));}
+  clearTimeout(trk.rt);trk.rt=setTimeout(trkFitNow,delay||0);
+  setTimeout(()=>{if(trk&&trk.map)trkFitNow();},(delay||0)+450);
+}
 document.addEventListener('click',e=>{if(!trk||!trk.live)return;
   if(e.target.closest('#trkHandle,#trkFull')){trk.min=!trk.min;drawTrack();trkFit(260);}
   else if(e.target.closest('#trkFit'))trkFit(0);});
@@ -2075,7 +2089,7 @@ OV.drawTrack=function(){
   if(m){trk.layers.forEach(x=>m.removeLayer(x));trk.layers=[];
     const pts=[];
     if(P){trk.layers.push(L.marker([P.lat,P.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin pu" style="position:relative;left:auto;top:auto;margin:0">${ic('users',20)}</div>`})}).addTo(m));pts.push([P.lat,P.lon]);}
-    if(D){trk.layers.push(L.marker([D.lat,D.lon],{icon:L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="pin drv" style="position:relative;left:auto;top:auto;margin:0">${ic('car',22)}</div>`})}).addTo(m));pts.push([D.lat,D.lon]);}
+    if(D){trk.layers.push(L.marker([D.lat,D.lon],{icon:L.divIcon({className:'lcar',iconSize:[58,31],iconAnchor:[29,16],html:CAR_SVG})}).addTo(m));pts.push([D.lat,D.lon]);}
     if(D&&P)trk.layers.push(rt?L.polyline(rt.pts,{color:'#0E7C4A',weight:5}).addTo(m):L.polyline([[D.lat,D.lon],[P.lat,P.lon]],{color:'#0E7C4A',weight:4,dashArray:'8 8'}).addTo(m));
     if(D&&P&&rt)rt.pts.forEach(q=>pts.push(q));
     trk.pts=pts;
