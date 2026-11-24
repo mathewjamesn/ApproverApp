@@ -1588,7 +1588,7 @@ drawReport();
 
   class GMap{
     constructor(el,opts){
-      this._el=el;this._opts=opts||{};this._layers=new Set();this._queue=[];this._idleQueue=[];this._idle=false;this._click=[];this.g=null;this._iw=null;
+      this._el=el;this._opts=opts||{};this._layers=new Set();this._queue=[];this._idleQueue=[];this._idle=false;this._click=[];this._move=[];this.g=null;this._iw=null;
       live.add(this);
       loadGoogle().then(gm=>{
         if(!this._el.isConnected&&!live.has(this))return;
@@ -1600,6 +1600,8 @@ drawReport();
         this._iw=new gm.InfoWindow();
         // Popups wait for the first 'idle' (map fully drawn); it never fires if Google rejects the key.
         gm.event.addListenerOnce(this.g,'idle',()=>{this._idle=true;const q=this._idleQueue;this._idleQueue=[];q.forEach(fn=>fn());});
+        // fires after every pan or zoom, once the map has come to rest
+        this.g.addListener('idle',()=>{this._move.forEach(fn=>{try{fn();}catch(e){}});});
         this.g.addListener('click',()=>{this._iw.close();this._click.forEach(fn=>{try{fn();}catch(e){}});});
         if(authFailed)msgInto(this._el,'Google Maps rejected the API key. Enable the Maps JavaScript API for this key in Google Cloud Console.');
         this._layers.forEach(l=>l._attach(this,gm));
@@ -1613,7 +1615,8 @@ drawReport();
       if(this._idle)show();else this._idleQueue.push(show);
     });}
     removeLayer(l){if(!l)return this;l._detach();l._map=null;this._layers.delete(l);return this;}
-    on(ev,fn){if(ev==='click')this._click.push(fn);return this;}
+    on(ev,fn){if(ev==='click')this._click.push(fn);else if(ev==='moveend')this._move.push(fn);return this;}
+    getBounds(){const b=this.g&&this.g.getBounds();if(!b)return null;const ne=b.getNorthEast(),sw=b.getSouthWest();return {south:sw.lat(),west:sw.lng(),north:ne.lat(),east:ne.lng()};}
     setView(c,z){return this._run(()=>{this.g.setCenter(ll(c));if(z!=null)this.g.setZoom(z);});}
     fitBounds(pts,o){o=o||{};return this._run(()=>{
       if(!pts||!pts.length)return;
@@ -2007,26 +2010,68 @@ function lmapInit(){
   const wrap=$('#mapwrap'),el=document.createElement('div');el.id='lmap';wrap.insertBefore(el,wrap.firstChild);$('#maplayer').style.display='none';
   window.lmap=mkMap(el);if(window.lmap)window.lmap.on('click',()=>closeSheet());
 }
-const visCars=()=>live().filter(d=>d.lat!=null&&!d.offline&&(mapCat==='All'||d.cat===mapCat));
+/* Drivers come from /CustomerCare/Drivers/InArea for whatever part of the map is on screen, and are fetched again after every pan or zoom. */
+let AREA=[],areaCount=0,areaSeq=0,areaTimer=null,areaErr='';
+const areaDriver=a=>{const ph=last10(a.mobileNumber);return DRIVERS.find(d=>!d.stub&&((ph&&d.phone===ph)||(a.driverId&&d.id===a.driverId)))||null;};
+const visCars=()=>AREA.filter(a=>mapCat==='All'||(a.d&&a.d.cat===mapCat));
+async function loadArea(){
+  const m=window.lmap,b=m&&m.getBounds&&m.getBounds();if(!b)return;
+  const seq=++areaSeq;
+  const body={southWest:{latitude:b.south,longitude:b.west},southEast:{latitude:b.south,longitude:b.east},northEast:{latitude:b.north,longitude:b.east},northWest:{latitude:b.north,longitude:b.west}};
+  try{
+    const r=await POST('/CustomerCare/Drivers/InArea',body);
+    if(seq!==areaSeq)return;   // a newer request has been sent since
+    const list=r&&Array.isArray(r.drivers)?r.drivers:[];
+    AREA=list.map(x=>{const c=x&&x.coordinates;if(!Array.isArray(c)||c.length<2)return null;const lon=num(c[0]),lat=num(c[1]);if(!lat||!lon)return null;
+      const o={key:String(x.driverId||x.mobileNumber||lat+','+lon),lat,lon,heading:x.heading,phone:last10(x.mobileNumber),driverId:x.driverId};o.d=areaDriver(x);if(o.d)o.key=o.d.id;return o;}).filter(Boolean);
+    areaCount=num(r&&r.count)||AREA.length;areaErr='';
+  }catch(e){if(seq!==areaSeq)return;areaErr=e.message;oops(e);}
+  catFilters();drawCars();
+}
+function areaSheet(a,loading,err){
+  selected=a.key;
+  $$('.car').forEach(c=>c.classList.toggle('sel',c.id==='car-'+a.key));
+  $('#sheet').innerHTML=`<button class="x" aria-label="Close" id="sheetX">${ic('close')}</button>
+   <div class="drow"><div class="avatar">${ic('car',22)}</div><div><div class="dname">Driver</div><div class="muted" style="font-size:12px;margin-top:4px">${loading?'Loading driver details…':err?esc(err):'Details are not available for this driver'}</div></div></div>
+   <div class="kv"><span class="k">Driver ID</span><span class="v num" style="font-size:12px;word-break:break-all">${esc(a.driverId||'—')}</span>${a.phone?`<span class="k">Mobile</span><span class="v">${fmtPhone(a.phone)}</span>`:''}<span class="k">Location</span><span class="v num">${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}</span></div>
+   <div class="btns" style="align-items:stretch">${a.phone?`<a class="btn" href="tel:+91${a.phone}">${ic('phone',18)}Call</a>`:''}<a class="btn pri" href="https://www.google.com/maps/search/?api=1&query=${a.lat.toFixed(6)},${a.lon.toFixed(6)}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a></div>`;
+  $('#sheet').classList.add('open');
+}
+/* A driver the app has not loaded yet is looked up by id (the same id the driver list uses) when its car is tapped. */
+async function lookupArea(a){
+  const old=a.key;areaSheet(a,true);
+  try{
+    let det=await GET('/Driver/Get/'+a.driverId+'/Kerala');if(Array.isArray(det))det=det[0];
+    if(!det||typeof det!=='object')throw new Error('No details were returned for this driver.');
+    const md=mapDriver(det,'Approved');upsert(md);
+    const d=DRIVERS.find(x=>x.id===md.id)||md;
+    a.d=d;a.key=d.id;
+    if(selected===old){openSheet(d.id);}
+    catFilters();drawCars();
+  }catch(e){if(selected===old)areaSheet(a,false,'Could not load details ('+(e&&e.message||'error')+')');}
+}
 OV.catFilters=function(){
-  const base=live().filter(d=>d.lat!=null&&!d.offline),items=['All',...Object.keys(CATS)];
-  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?base.length:base.filter(d=>d.cat===c).length}</span></button>`).join('');
+  const items=['All',...Object.keys(CATS)];
+  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?AREA.length:AREA.filter(a=>a.d&&a.d.cat===c).length}</span></button>`).join('');
 };
 OV.drawCars=function(){
   lmapInit();const m=window.lmap;if(!m)return;
   lcars.forEach(x=>m.removeLayer(x));lcars=[];
-  const vis=visCars();$('#liveCount').textContent=vis.length+' online';
-  vis.forEach(d=>{
-    const ic2=L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="car ${selected===d.id?'sel':''}" id="car-${d.id}" style="--c:${CATS[d.cat].c}"><button aria-label="${d.name}, ${d.cat}">${ic('car',22)}</button></div>`});
-    lcars.push(L.marker([d.lat,d.lon],{icon:ic2}).on('click',()=>openSheet(d.id)).addTo(m));
+  const vis=visCars();
+  $('#liveCount').textContent=areaErr&&!AREA.length?'Could not load':vis.length+(areaCount>AREA.length||AREA.length>=200?'+':'')+' in view';
+  vis.forEach(a=>{
+    const col=a.d?CATS[a.d.cat].c:'#6B7280';
+    const ic2=L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="car ${selected===a.key?'sel':''}" id="car-${esc(a.key)}" style="--c:${col}"><button aria-label="${a.d?esc(a.d.name):'Driver'}">${ic('car',22)}</button></div>`});
+    lcars.push(L.marker([a.lat,a.lon],{icon:ic2}).on('click',()=>a.d?openSheet(a.d.id):lookupArea(a)).addTo(m));
   });
-  if(!fitted&&vis.length){fitted=true;m.fitBounds(L.latLngBounds(vis.map(d=>[d.lat,d.lon])),{padding:[60,60],maxZoom:14});}
 };
 OV.startMap=function(){
-  lmapInit();catFilters();drawCars();clearInterval(mapTimer);
-  setTimeout(()=>window.lmap&&window.lmap.invalidateSize(),60);
-  const tick=async()=>{await loadLocations();catFilters();drawCars();};
-  tick();mapTimer=setInterval(()=>{if(current==='map')tick();},15000);
+  lmapInit();catFilters();drawCars();clearInterval(areaTimer);
+  const m=window.lmap;
+  if(m&&!m._areaHooked){m._areaHooked=true;m.setView([10.0,76.3],11);
+    let t=null;m.on('moveend',()=>{if(current!=='map')return;clearTimeout(t);t=setTimeout(loadArea,450);});}
+  setTimeout(()=>{if(window.lmap){window.lmap.invalidateSize();loadArea();}},120);
+  areaTimer=setInterval(()=>{if(current==='map')loadArea();},15000);
 };
 
 /* ---------- track driver ---------- */
