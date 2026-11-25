@@ -407,6 +407,8 @@ a.ib{text-decoration:none;color:inherit}
 .trkcard.min .tbody{display:none}
 .vehl{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;flex-wrap:wrap}
 .vehl b{font-weight:700;letter-spacing:.02em}
+.vlink{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:6px 12px;border-radius:99px;background:var(--chip);color:var(--ink);font-size:12.5px;font-weight:700}
+.vehl .vlink{margin-top:0;padding:3px 9px}
 .tactions{display:flex;gap:8px;margin-top:12px}
 .tactions .btn{flex:1;padding:11px 8px;font-size:13px}
 a.btn{text-decoration:none;color:inherit}
@@ -1210,7 +1212,7 @@ function renderDT(){
 /* ---------- drivers ---------- */
 let drvTab='All',drvQ='';
 const DTABS=['All','Approved','Pending','Document Pending','Rejected'];
-const vehHtml=d=>d.vstate==='load'?'<div class="vehl muted">Loading vehicle…</div>':d.vstate==='ok'&&d.veh?`<div class="vehl">${ic('car',14)}<b>${d.veh.plate||'—'}</b><span class="muted">${[d.veh.make,d.veh.model].filter(Boolean).join(' ')?' · '+[d.veh.make,d.veh.model].filter(Boolean).join(' '):''}${d.veh.type?' · '+d.veh.type:''}</span></div>`:d.vstate==='none'?'<div class="vehl muted">No vehicle linked</div>':d.vstate==='err'?'<div class="vehl muted">Vehicle details unavailable</div>':'';
+const vehHtml=d=>d.vstate==='load'?'<div class="vehl muted">Loading vehicle…</div>':d.vstate==='ok'&&d.veh?`<div class="vehl">${ic('car',14)}<b>${d.veh.plate||'—'}</b><span class="muted">${[d.veh.make,d.veh.model].filter(Boolean).join(' ')?' · '+[d.veh.make,d.veh.model].filter(Boolean).join(' '):''}${d.veh.type?' · '+d.veh.type:''}</span></div>`:d.vstate==='none'?'<div class="vehl muted">No vehicle linked</div>':d.vstate==='err'?`<div class="vehl muted">Vehicle details unavailable · <button class="vlink" data-veh="${d.id}">Try again</button></div>`:window.LIVE?`<button class="vlink" data-veh="${d.id}">${ic('car',14)}Vehicle details${ic('chev',12)}</button>`:'';
 function renderDrivers(){
   $('#drvTabs').innerHTML=DTABS.map(t=>`<button class="${t===drvTab?'on':''}" data-dt="${t}">${t}<span class="ct">${t==='All'?DRIVERS.length:DRIVERS.filter(d=>d.status===t).length}</span></button>`).join('');
   const q=drvQ.trim().toLowerCase();
@@ -1859,22 +1861,14 @@ async function ensureVehicle(d){
     d.vstate='ok';
   }catch(e){d.vstate='err';}
 }
-let vehTimer=null;
-function vehHook(){
-  clearTimeout(vehTimer);
-  if(!window.LIVE||!drvQ.trim())return;
-  vehTimer=setTimeout(async()=>{
-    const ids=$$('#drvList .drv[data-did]').map(x=>x.dataset.did).slice(0,8);
-    const todo=ids.map(id=>DRIVERS.find(d=>d.id===id)).filter(d=>d&&!d.vstate);
-    if(!todo.length)return;
-    const jobs=todo.map(ensureVehicle);   // each sets its 'Loading vehicle…' state straight away
-    if(current==='drivers')_rdOrig();
-    await Promise.allSettled(jobs);
-    if(current==='drivers')_rdOrig();
-  },600);
-}
-const _rdOrig=renderDrivers;
-OV.renderDrivers=function(){_rdOrig();vehHook();};
+/* Tapping "Vehicle details" on a driver card loads that one driver's vehicle. */
+document.addEventListener('click',async e=>{
+  const x=e.target.closest('[data-veh]');if(!x)return;
+  e.stopPropagation();e.preventDefault();
+  const d=DRIVERS.find(v=>v.id===x.dataset.veh);if(!d||d.vstate==='load')return;
+  d.vstate='';const job=ensureVehicle(d);renderDrivers();
+  await job;if(current==='drivers')renderDrivers();
+},true);
 let cityFail=0;
 async function loadCities(){
   try{
