@@ -405,6 +405,8 @@ a.ib{text-decoration:none;color:inherit}
 .thandle .ar{display:grid;transition:transform .2s}
 .trkcard.min{max-height:none;padding-bottom:calc(22px + env(safe-area-inset-bottom,0px))}
 .trkcard.min .tbody{display:none}
+.vehl{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12.5px;flex-wrap:wrap}
+.vehl b{font-weight:700;letter-spacing:.02em}
 .tactions{display:flex;gap:8px;margin-top:12px}
 .tactions .btn{flex:1;padding:11px 8px;font-size:13px}
 a.btn{text-decoration:none;color:inherit}
@@ -1208,13 +1210,14 @@ function renderDT(){
 /* ---------- drivers ---------- */
 let drvTab='All',drvQ='';
 const DTABS=['All','Approved','Pending','Document Pending','Rejected'];
+const vehHtml=d=>d.vstate==='load'?'<div class="vehl muted">Loading vehicle…</div>':d.vstate==='ok'&&d.veh?`<div class="vehl">${ic('car',14)}<b>${d.veh.plate||'—'}</b><span class="muted">${[d.veh.make,d.veh.model].filter(Boolean).join(' ')?' · '+[d.veh.make,d.veh.model].filter(Boolean).join(' '):''}${d.veh.type?' · '+d.veh.type:''}</span></div>`:d.vstate==='none'?'<div class="vehl muted">No vehicle linked</div>':d.vstate==='err'?'<div class="vehl muted">Vehicle details unavailable</div>':'';
 function renderDrivers(){
   $('#drvTabs').innerHTML=DTABS.map(t=>`<button class="${t===drvTab?'on':''}" data-dt="${t}">${t}<span class="ct">${t==='All'?DRIVERS.length:DRIVERS.filter(d=>d.status===t).length}</span></button>`).join('');
   const q=drvQ.trim().toLowerCase();
   const list=DRIVERS.filter(d=>(drvTab==='All'||d.status===drvTab)&&(!q||[d.name,d.phone,d.reg,d.model].join(' ').toLowerCase().includes(q)));
   $('#drvSub').textContent=`${list.length} driver${list.length===1?'':'s'}${q?' found':''}`;
-  $('#drvList').innerHTML=list.length?list.map(d=>{const rev=d.status!=='Approved';return `<div class="drv" ${rev?`data-verify="${d.id}" role="button" tabindex="0"`:''}><div class="avatar">${initials(d.name)}</div><div class="meta"><b>${d.name}</b><span class="m">${fmtPhone(d.phone)} · ${d.model}</span>
-   <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${badge(d.cat,CATS[d.cat].c)}${badge(d.status,DSTATUS[d.status])}</div>${rev?`<div class="hint">${d.status==='Rejected'?'View and re-review':'Review documents'} ${ic('chev',12)}</div>`:''}</div>
+  $('#drvList').innerHTML=list.length?list.map(d=>{const rev=d.status!=='Approved';return `<div class="drv" data-did="${d.id}" ${rev?`data-verify="${d.id}" role="button" tabindex="0"`:''}><div class="avatar">${initials(d.name)}</div><div class="meta"><b>${d.name}</b><span class="m">${fmtPhone(d.phone)} · ${d.model}</span>
+   <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${badge(d.cat,CATS[d.cat].c)}${badge(d.status,DSTATUS[d.status])}</div>${vehHtml(d)}${rev?`<div class="hint">${d.status==='Rejected'?'View and re-review':'Review documents'} ${ic('chev',12)}</div>`:''}</div>
    <div class="qc">${d.status==='Approved'?`<button class="ib sm flat" data-dtrips="${d.id}" aria-label="Trips by ${d.name}">${ic('trips')}</button>`:''}${contactBtns(d.phone,d.name,true)}</div></div>`;}).join(''):empty('search','No drivers match your search');
 }
 $('#drvTabs').onclick=e=>{const b=e.target.closest('[data-dt]');if(b){drvTab=b.dataset.dt;renderDrivers();}};
@@ -1758,7 +1761,7 @@ function mapDriver(r,def){
   const name=esc(((r.firstName||'')+' '+(r.lastName||'')).trim()||r.driverName||r.name||phone||'Driver');
   return {id:esc(r.id||('M'+phone)),name,phone,cat:catOf(r.associatedVehicleType||r.vehicleCategory||r.vehicleType||r.category),
     model:esc(r.vehicleModel||r.vehicleName||r.associatedVehicleType||'—'),reg:esc(r.registrationNumber||r.plateNumber||'—'),
-    status:statusOf(r,def),x:0,y:0,pk:r.partitionKey||'Kerala'};
+    status:statusOf(r,def),x:0,y:0,pk:r.partitionKey||'Kerala',vid:String(r.currentAssociatedVehicleIdentifier||r.currentVehicleIdentifier||r.associatedVehicleIdentifier||'')};
 }
 function upsert(d){const i=DRIVERS.findIndex(x=>x.phone&&x.phone===d.phone);if(i>=0){const o=DRIVERS[i],oldId=o.id;if(oldId!==d.id)TRIPS.forEach(t=>{if(t.driver===oldId)t.driver=d.id;});Object.assign(o,d,{lat:o.lat,lon:o.lon,hrs:o.hrs,today:o.today,city:o.city,stub:d.stub&&o.stub});return o;}DRIVERS.push(d);return d;}
 function ensureDriver(phone,name,cat){
@@ -1841,6 +1844,37 @@ async function loadLocations(){
   const ds=live().slice(0,30);
   await Promise.allSettled(ds.map(async d=>{try{const p=await fetchPos(d.phone);if(p){d.lat=p.lat;d.lon=p.lon;d.offline=String(p.status||'').toLowerCase()==='offline';}else d.lat=null;}catch(e){d.lat=null;}}));
 }
+/* Vehicle in use: the driver record names it (currentAssociatedVehicleIdentifier); /Vehicle/Get/{id}/{partition} has the details.
+   Only looked up for the few drivers a search leaves on screen. */
+async function ensureVehicle(d){
+  if(d.vstate)return;d.vstate='load';
+  try{
+    let vid=d.vid;
+    if(!vid){let det=await GET('/Driver/Get/'+d.id+'/'+d.pk);if(Array.isArray(det))det=det[0];vid=det&&det.currentAssociatedVehicleIdentifier;}
+    if(!vid){d.vstate='none';return;}
+    let v=await GET('/Vehicle/Get/'+vid+'/'+d.pk);if(Array.isArray(v))v=v[0];
+    if(!v||typeof v!=='object'){d.vstate='none';return;}
+    d.veh={plate:esc(v.plateNumber||v.registrationNumber||v.registrationNo||''),make:esc(v.vehicleMake||v.make||''),model:esc(v.vehicleModel||v.vehicleName||''),type:esc(v.vehicleType||'')};
+    if(d.veh.plate)d.reg=d.veh.plate;
+    d.vstate='ok';
+  }catch(e){d.vstate='err';}
+}
+let vehTimer=null;
+function vehHook(){
+  clearTimeout(vehTimer);
+  if(!window.LIVE||!drvQ.trim())return;
+  vehTimer=setTimeout(async()=>{
+    const ids=$$('#drvList .drv[data-did]').map(x=>x.dataset.did).slice(0,8);
+    const todo=ids.map(id=>DRIVERS.find(d=>d.id===id)).filter(d=>d&&!d.vstate);
+    if(!todo.length)return;
+    const jobs=todo.map(ensureVehicle);   // each sets its 'Loading vehicle…' state straight away
+    if(current==='drivers')_rdOrig();
+    await Promise.allSettled(jobs);
+    if(current==='drivers')_rdOrig();
+  },600);
+}
+const _rdOrig=renderDrivers;
+OV.renderDrivers=function(){_rdOrig();vehHook();};
 let cityFail=0;
 async function loadCities(){
   try{
