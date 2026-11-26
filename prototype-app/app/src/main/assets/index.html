@@ -1848,17 +1848,26 @@ async function loadLocations(){
 }
 /* Vehicle in use: the driver record names it (currentAssociatedVehicleIdentifier); /Vehicle/Get/{id}/{partition} has the details.
    Only looked up for the few drivers a search leaves on screen. */
+const vidOf=r=>r&&typeof r==='object'?String(r.currentAssociatedVehicleIdentifier||r.currentVehicleIdentifier||r.associatedVehicleIdentifier||''):'';
 async function ensureVehicle(d){
   if(d.vstate)return;d.vstate='load';
   try{
-    let vid=d.vid;
-    if(!vid){let det=await GET('/Driver/Get/'+d.id+'/'+d.pk);if(Array.isArray(det))det=det[0];vid=det&&det.currentAssociatedVehicleIdentifier;}
-    if(!vid){d.vstate='none';return;}
-    let v=await GET('/Vehicle/Get/'+vid+'/'+d.pk);if(Array.isArray(v))v=v[0];
+    // Drivers that came from trips or reports do not carry a real driver id, so look the driver up by mobile number first
+    let vid=d.vid,pk=d.pk,rec=null;
+    if(!vid&&d.phone){
+      try{let r=await GET('/CustomerCare/GetByMobileNumber/'+d.phone);if(Array.isArray(r))r=r[0];if(r&&typeof r==='object'){rec=r;vid=vidOf(r);if(r.partitionKey)pk=r.partitionKey;}}catch(e){}
+    }
+    // the record found by mobile number carries the real driver id, which /Driver/Get needs
+    const rid=(rec&&rec.id)||d.id;
+    if(!vid&&/^[0-9a-f-]{20,}$/i.test(String(rid))){
+      try{let r=await GET('/Driver/Get/'+rid+'/'+pk);if(Array.isArray(r))r=r[0];rec=rec||r;vid=vidOf(r);}catch(e){}
+    }
+    if(!vid){d.vstate=rec?'none':'err';return;}
+    let v=await GET('/Vehicle/Get/'+vid+'/'+pk);if(Array.isArray(v))v=v[0];
     if(!v||typeof v!=='object'){d.vstate='none';return;}
     d.veh={plate:esc(v.plateNumber||v.registrationNumber||v.registrationNo||''),make:esc(v.vehicleMake||v.make||''),model:esc(v.vehicleModel||v.vehicleName||''),type:esc(v.vehicleType||'')};
     if(d.veh.plate)d.reg=d.veh.plate;
-    d.vstate='ok';
+    d.vid=vid;d.vstate='ok';
   }catch(e){d.vstate='err';}
 }
 /* Tapping "Vehicle details" on a driver card loads that one driver's vehicle. */
