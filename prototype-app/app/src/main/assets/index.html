@@ -1895,7 +1895,7 @@ function drawCityBody(){
    <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
-let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0;
+let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0,missedWin=null;
 const MIN_CHOICES=['today',5,10,15,20,30,45,60,90,120,180];
 const minsSinceMidnight=()=>{const d=new Date();d.setHours(0,0,0,0);return Math.max(1,Math.ceil((Date.now()-d.getTime())/60000));};
 const minsOf=v=>v==='today'?minsSinceMidnight():v;
@@ -1925,8 +1925,9 @@ function groupNotConverted(data){
     let d=tRaw?new Date(tRaw):null;if(d&&isNaN(d))d=null;
     const from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||''),to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||'');
     // one ride request = one count, however many drivers it was sent to
+    const uid=pick(it,['rideRequestStatusUniqueId','rideRequestStatusUniqueID','rideRequestStatusUniqueIdentifier','RideRequestStatusUniqueId']);
     const reqId=pick(it,['rideRequestIdentifier','rideRequestId','rideRequestID','requestIdentifier','requestId','rideId','tripId','bookingId']);
-    const rkey=String(reqId||(tRaw+'|'+from+'|'+to));
+    const rkey=String(uid||reqId||(tRaw+'|'+from+'|'+to));
     let r=e.reqs.get(rkey);
     if(!r){r={date:d,from,to,drivers:new Map()};e.reqs.set(rkey,r);}
     if(!r.date&&d)r.date=d;
@@ -1947,10 +1948,11 @@ async function loadMissed(){
     missedRaw=listIn(data)[0]||null;
     const grouped=groupNotConverted(data);
     MISSED.length=0;grouped.forEach(x=>MISSED.push(x));
+    missedWin={req:grouped.reduce((a,m)=>a+m.requests,0),pax:grouped.length};
     if(missedMin==='today'){missedToday=grouped.length;missedTodayReq=grouped.reduce((a,m)=>a+m.requests,0);}
     el.innerHTML=missedLive();
     if(missedMin!=='today')loadMissedToday();
-  }catch(e){MISSED.length=0;el.innerHTML=missedHead()+empty('alert','Could not load missed requests.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
+  }catch(e){MISSED.length=0;missedWin=null;el.innerHTML=missedHead()+empty('alert','Could not load missed requests.<br><span class="muted" style="font-size:12px">'+esc(e.message)+'</span>');}
   bindMissed();kpis();
 }
 const missedHead=()=>todayBox()+`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Not converted rides</b><div class="muted" style="font-size:12px">Passengers who did not get a ride</div></div>
@@ -1966,16 +1968,17 @@ function missedLive(){
    <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?(m.requests>1?m.requests+' requests · sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s'):'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted'):'No driver details'}</button></div>`).join('')+raw;
 }
 function bindMissed(){
-  const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=sel.value==='today'?'today':+sel.value;ls.s('missedMin',missedMin);$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
+  const sel=$('#missedSel');if(sel)sel.onchange=()=>{missedMin=sel.value==='today'?'today':+sel.value;ls.s('missedMin',missedMin);missedWin=null;$('#missedBody').innerHTML=missedHead()+empty('search','Loading…');loadMissed();};
   $$('#missedBody [data-sent]').forEach(b=>b.onclick=()=>sentSheet(MISSED[+b.dataset.sent]));
 }
 async function loadMissedToday(){
   try{const g=groupNotConverted(await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsSinceMidnight()));missedToday=g.length;missedTodayReq=g.reduce((a,m)=>a+m.requests,0);}catch(e){}
   paintToday();kpis();
 }
-const todayTxt=()=>missedToday===null?'Loading…':'missed ride request'+(missedTodayReq===1?'':'s')+' from '+missedToday+' passenger'+(missedToday===1?'':'s');
-function paintToday(){const n=$('#missedTodayNum'),l=$('#missedTodayLbl');if(n)n.textContent=missedToday===null?'–':missedTodayReq;if(l)l.textContent=todayTxt();}
-const todayBox=()=>`<div class="card" style="margin-top:6px;background:var(--solid);color:var(--solid-ink);display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:12px;opacity:.75;font-weight:700;letter-spacing:.05em">MISSED TODAY</div><div style="font-size:12px;opacity:.75;margin-top:2px" id="missedTodayLbl">${todayTxt()}</div></div><b id="missedTodayNum" style="font-family:var(--f-head);font-size:34px">${missedToday===null?'–':missedTodayReq}</b></div>`;
+const todayTxt=()=>missedWin===null?'Loading…':'missed ride request'+(missedWin.req===1?'':'s')+' from '+missedWin.pax+' passenger'+(missedWin.pax===1?'':'s')+'';
+const boxTitle=()=>'MISSED '+(missedMin==='today'?'TODAY':winLabel(missedMin).toUpperCase());
+function paintToday(){const n=$('#missedTodayNum'),l=$('#missedTodayLbl'),t=$('#missedBoxTitle');if(n)n.textContent=missedWin===null?'–':missedWin.req;if(l)l.textContent=todayTxt();if(t)t.textContent=boxTitle();}
+const todayBox=()=>`<div class="card" style="margin-top:6px;background:var(--solid);color:var(--solid-ink);display:flex;align-items:center;justify-content:space-between;gap:12px"><div><div style="font-size:12px;opacity:.75;font-weight:700;letter-spacing:.05em" id="missedBoxTitle">${boxTitle()}</div><div style="font-size:12px;opacity:.75;margin-top:2px" id="missedTodayLbl">${todayTxt()}</div></div><b id="missedTodayNum" style="font-family:var(--f-head);font-size:34px">${missedWin===null?'–':missedWin.req}</b></div>`;
 let sentEl=null;
 function closeSent(){if(sentEl)sentEl.classList.remove('on');}
 function sentSheet(m){
