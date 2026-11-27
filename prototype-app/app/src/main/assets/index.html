@@ -1779,7 +1779,9 @@ function tripKind(r){
   if(raw.includes('reserv')||raw.includes('schedul')||r.isReservation===true||r.isScheduled===true||r.isScheduledTrip===true||r.isReservationTrip===true)return 'Reservation';
   return 'Normal';
 }
-const tm=v=>{if(!v)return null;const d=new Date(v);return isNaN(d)?esc(v):d;};
+/* The server sends times in UTC. A time with no zone marker would be read as local time, so mark it as UTC first. */
+const utcDate=v=>{if(v instanceof Date)return v;if(typeof v==='string'&&/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(v.trim()))v=v.trim().replace(' ','T')+'Z';return new Date(v);};
+const tm=v=>{if(!v)return null;const d=utcDate(v);return isNaN(d)?esc(v):d;};
 /* pickup distance in km: pickupDistance first, then any field whose name has pickup + distance (also inside nested objects); a value over 200 is taken as metres */
 function pickupFrom(r){
   const scan=o=>{if(!o||typeof o!=='object')return 0;for(const [k,v] of Object.entries(o)){if(/pick\s*-?up.*dist|dist.*pick\s*-?up/i.test(k)&&v!=null&&typeof v!=='object'){const n=num(v);if(n>0)return n;}}return 0;};
@@ -1789,13 +1791,13 @@ function pickupFrom(r){
 }
 function mapTrip(r){
   let st=String(r.tripStatus||'').trim();
-  if(!st){const c=new Date(r.createdOn||r.tripStartDate||0).getTime();if(c&&Date.now()-c<=864e5)st='DriverAccepted';}
+  if(!st){const c=utcDate(r.createdOn||r.tripStartDate||0).getTime();if(c&&Date.now()-c<=864e5)st='DriverAccepted';}
   st=st||'Unknown';
   if(!STATUS[st])STATUS[st]={t:st.replace(/([a-z])([A-Z])/g,'$1 $2'),c:'var(--muted)'};
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
-  let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
+  let date=utcDate(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
   const pk0=pickupFrom(r);
-  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv|cancel/i.test(st)&&!/reject|complete/i.test(st)?est0:0),est=est0||fare;
+  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=/cancel/i.test(st)&&num(r.initialFareAmount)>0?num(r.initialFareAmount):num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv|cancel/i.test(st)&&!/reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
@@ -1897,7 +1899,7 @@ function drawCityBody(){
    <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
-let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0,missedWin=null,missedWarn='';
+let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0,missedWin=null,missedWarn='',missedStats=null;
 const MIN_CHOICES=['today',5,10,15,20,30,45,60,90,120,180];
 const minsSinceMidnight=()=>{const d=new Date();d.setHours(0,0,0,0);return Math.max(1,Math.ceil((Date.now()-d.getTime())/60000));};
 const minsOf=v=>v==='today'?minsSinceMidnight():v;
@@ -1930,8 +1932,8 @@ function fareOf(o,depth){
   for(const x of Object.values(o)){if(x&&typeof x==='object'&&!Array.isArray(x)){const n=fareOf(x,depth+1);if(n>0)return n;}}
   return 0;
 }
-function groupNotConverted(data){
-  const reqs=new Map();let withUid=0,rows=0;
+function groupNotConverted(data,windowMin){
+  const reqs=new Map(),uidSet=new Set();let withUid=0,rows=0;
   listIn(data).forEach((it,idx)=>{
     if(!it||typeof it!=='object')return;rows++;
     const pax=it.passenger||it.passengerDetails||it.customer||{};
@@ -1939,23 +1941,32 @@ function groupNotConverted(data){
     const pidRaw=String(pick(it,['passengerId','passengerIdentifier','passengerID','customerId'])||pick(pax,['id','passengerId'])||'');
     const name=nameFrom(pax)||String(pick(it,['passengerName','customerName'])||'')||[pick(it,['passengerFirstName']),pick(it,['passengerLastName'])].filter(Boolean).join(' ');
     const tRaw=pick(it,['createdOn','requestedOn','rideRequestedOn','createdDate','requestTime','requestedTime','timestamp','createdAt']);
-    let d=tRaw?new Date(tRaw):null;if(d&&isNaN(d))d=null;
+    let d=tRaw?utcDate(tRaw):null;if(d&&isNaN(d))d=null;
     const from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||''),to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||'');
     // one ride request = one count: keyed by rideRequestStatusUniqueId, and only then by weaker ids
-    const uid=uidOf(it);if(uid)withUid++;
+    const uid=uidOf(it);if(uid){withUid++;uidSet.add(uid);}
     const reqId=pick(it,['rideRequestIdentifier','rideRequestId','rideRequestID','requestIdentifier','requestId','rideId','tripId','bookingId']);
     const who=pidRaw||phone||name||('row'+idx);
     const rkey=uid?'u:'+uid:reqId?'i:'+reqId:'t:'+who+'|'+String(tRaw).slice(0,16)+'|'+from+'|'+to;
     let r=reqs.get(rkey);
     if(!r){r={pid:pidRaw,phone,name,date:d,from,to,cat:'',drivers:new Map(),key:rkey};reqs.set(rkey,r);}
     r.pid=r.pid||pidRaw;r.phone=r.phone||phone;r.name=r.name||name;
-    if(!r.date&&d)r.date=d;
+    if(d&&(!r.date||d<r.date))r.date=d;
     r.cat=r.cat||String(pick(it,['vehicleCategory','vehicleType','category','rideCategory'])||'');
     r.fare=r.fare||fareOf(it);
     const list=driversIn(it);
     const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm;if(!r.drivers.has(key))r.drivers.set(key,{name:nm||'Driver',phone:ph});};
     if(list)list.forEach(add);else if(pick(it,['driverMobileNumber','driverName'])){add({name:pick(it,['driverName']),mobileNumber:pick(it,['driverMobileNumber'])});}
   });
+  // keep only the requests whose createdOn is inside the window
+  const totalReqs=reqs.size;let tzFallback=false;
+  if(windowMin){
+    const cutoff=Date.now()-windowMin*60000,keep=new Map();
+    reqs.forEach((r,k)=>{if(!r.date||r.date.getTime()>=cutoff)keep.set(k,r);});
+    if(keep.size||!reqs.size){reqs.clear();keep.forEach((r,k)=>reqs.set(k,r));}
+    else tzFallback=true;   // nothing at all is inside the window: the times are probably in another time zone, so do not hide everything
+  }
+  groupNotConverted.totalReqs=totalReqs;groupNotConverted.tzFallback=tzFallback;
   // group the requests by passenger
   const g=new Map();
   reqs.forEach(r=>{
@@ -1970,7 +1981,7 @@ function groupNotConverted(data){
     r.drivers.forEach((v,k)=>{if(!e.drivers.has(k))e.drivers.set(k,v);});
   });
   g.forEach(e=>{e.requests=e.reqs.size;});
-  groupNotConverted.rows=rows;groupNotConverted.withUid=withUid;
+  groupNotConverted.rows=rows;groupNotConverted.withUid=withUid;groupNotConverted.uids=uidSet.size;groupNotConverted.reqs=reqs.size;
   return [...g.values()].sort((x,y)=>(y.date||0)-(x.date||0));
 }
 async function loadMissed(){
@@ -1978,9 +1989,9 @@ async function loadMissed(){
   try{
     const data=await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsOf(missedMin));
     missedRaw=listIn(data)[0]||null;
-    const grouped=groupNotConverted(data);
+    const grouped=groupNotConverted(data,minsOf(missedMin));
     MISSED.length=0;grouped.forEach(x=>MISSED.push(x));
-    missedWin={req:grouped.reduce((a,m)=>a+m.requests,0),pax:grouped.length};missedWarn=groupNotConverted.rows&&groupNotConverted.withUid<groupNotConverted.rows?(groupNotConverted.withUid?'Some rows have no rideRequestStatusUniqueId, so the count may be high.':'rideRequestStatusUniqueId was not found in the response, so rows are grouped by passenger, route and minute. Check the fields below.'):'';
+    missedWin={req:grouped.reduce((a,m)=>a+m.requests,0),pax:grouped.length};missedStats={rows:groupNotConverted.rows,withUid:groupNotConverted.withUid,uids:groupNotConverted.uids,reqs:groupNotConverted.reqs,total:groupNotConverted.totalReqs,tz:groupNotConverted.tzFallback};missedWarn=groupNotConverted.rows&&groupNotConverted.withUid<groupNotConverted.rows?(groupNotConverted.withUid?'Some rows have no rideRequestStatusUniqueId, so the count may be high.':'rideRequestStatusUniqueId was not found in the response, so rows are grouped by passenger, route and minute. Check the fields below.'):'';
     if(missedMin==='today'){missedToday=grouped.length;missedTodayReq=grouped.reduce((a,m)=>a+m.requests,0);}
     el.innerHTML=missedLive();
     if(missedMin!=='today')loadMissedToday();
@@ -1990,7 +2001,8 @@ async function loadMissed(){
 const missedHead=()=>todayBox()+`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><div style="flex:1"><b>Not converted rides</b><div class="muted" style="font-size:12px">Passengers who did not get a ride</div></div>
   <select id="missedSel" class="sel" style="width:auto;padding:8px 6px;font-weight:700" aria-label="Time window">${MIN_CHOICES.map(m=>`<option value="${m}" ${m===missedMin?'selected':''}>${m==='today'?'Today':m<60?m+' min':m%60?m+' min':(m/60)+' hr'}</option>`).join('')}</select></div>`;
 function missedLive(){
-  const raw=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
+  const rawBox=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
+  const raw=(missedStats?'<div class="muted" style="font-size:12px;margin:10px 2px">Rows returned: <b>'+missedStats.rows+'</b> · with rideRequestStatusUniqueId: <b>'+missedStats.withUid+'</b> · different ids: <b>'+missedStats.uids+'</b> · requests returned: <b>'+missedStats.total+'</b> · inside the window: <b>'+missedStats.reqs+'</b>'+(missedStats.tz?'<br>No request is inside the window by createdOn, so nothing was filtered out (check the time zone of createdOn).':'')+'</div>':'')+rawBox;
   if(!MISSED.length)return missedHead()+empty('check','No missed requests '+(missedMin==='today'?'today':'in the last '+missedMin+' minutes'))+raw;
   return missedHead()+(missedWarn?`<div class="err" style="margin:10px 0">${esc(missedWarn)}</div>`:'')+`<div class="mini-h" style="margin-top:14px">${MISSED.reduce((a,m)=>a+m.requests,0)} missed request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
    <div class="trow"><div class="drow" style="gap:10px"><div class="avatar">${esc(initials(m.name||'P'))}</div><div style="min-width:0"><div class="dname" style="font-size:16px">${esc(m.name)}</div>
@@ -2004,7 +2016,7 @@ function bindMissed(){
   $$('#missedBody [data-sent]').forEach(b=>b.onclick=()=>sentSheet(MISSED[+b.dataset.sent]));
 }
 async function loadMissedToday(){
-  try{const g=groupNotConverted(await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsSinceMidnight()));missedToday=g.length;missedTodayReq=g.reduce((a,m)=>a+m.requests,0);}catch(e){}
+  try{const g=groupNotConverted(await GET('/Reports/GetAllNotConvertedRidesWithinMinutes/'+minsSinceMidnight()),minsSinceMidnight());missedToday=g.length;missedTodayReq=g.reduce((a,m)=>a+m.requests,0);}catch(e){}
   paintToday();kpis();
 }
 const todayTxt=()=>missedWin===null?'Loading…':'missed ride request'+(missedWin.req===1?'':'s')+' from '+missedWin.pax+' passenger'+(missedWin.pax===1?'':'s')+'';
@@ -2560,7 +2572,7 @@ let locMap=null,locMark=null;
 function locDraw(P,p,raw,msg){
   const d=DRIVERS.find(x=>x.phone===p),nm=d?d.name:String(pick(raw||{},['driverName','name'])||'Driver');
   const when=raw?pick(raw,['lastLocationUpdateTimeInUTC','updatedOn','lastUpdatedOn','lastUpdated','locationUpdatedOn','timestamp','modifiedOn','createdOn']):null;
-  let wd=when?new Date(when):null;if(wd&&isNaN(wd))wd=null;
+  let wd=when?utcDate(when):null;if(wd&&isNaN(wd))wd=null;
   const st=P&&P.status?String(P.status):'';
   const url=P?'https://www.google.com/maps/search/?api=1&query='+P.lat.toFixed(6)+','+P.lon.toFixed(6):'';
   $('#locCard').innerHTML=(P?`<div class="trow"><span style="font-weight:700">Driver located</span>${st?badge(st,/offline/i.test(st)?'var(--warn)':'var(--ok)'):badge('Located','var(--ok)')}</div>
