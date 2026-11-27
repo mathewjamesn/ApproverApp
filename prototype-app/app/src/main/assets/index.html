@@ -1795,7 +1795,7 @@ function mapTrip(r){
   const d=ensureDriver(r.driverMobileNumber,r.driverName,r.vehicleCategory||r.vehicleType);
   let date=new Date(r.createdOn||r.tripAcceptDate||r.tripStartDate);if(isNaN(date))date=new Date();
   const pk0=pickupFrom(r);
-  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv/i.test(st)&&!/cancel|reject|complete/i.test(st)?est0:0),est=est0||fare;
+  const est0=num(r.initialFareAmount)||num(r.estimatedFareAmount)||num(r.tripFare)||num(r.totalFare),fare=num(r.finalFareAmount)>0?num(r.finalFareAmount):(/accept|start|progress|ongoing|arriv|cancel/i.test(st)&&!/reject|complete/i.test(st)?est0:0),est=est0||fare;
   const type=tripKind(r);
   return {type,pkg:esc(r.rentalPackageName||r.rentalPackage||r.packageName||''),id:esc(r.id||r.rideRequestIdentifier||Math.random().toString(36).slice(2)),
     driver:d.id,passenger:esc(r.passengerName||'Passenger'),pphone:last10(r.passengerMobileNumber),from:esc(r.fromLocation||'—'),
@@ -1897,7 +1897,7 @@ function drawCityBody(){
    <div class="legend" style="margin-bottom:6px"><span><i class="dot" style="background:var(--brand)"></i>Cars ${cars.toLocaleString('en-IN')}</span><span><i class="dot" style="background:var(--auto)"></i>Autos ${autos.toLocaleString('en-IN')}</span></div>${cityFail?`<div class="err" style="margin:6px 0">${cityFail} of ${CITY_NAMES.length*2} lookups failed, so these counts may be low. Pull down to retry.</div>`:''}`+
    CITIES.map(c=>`<div class="city"><div class="t"><b>${esc(c[0])}</b><span class="num muted">${c[1]} cars · ${c[2]} autos</span></div><div class="stack" style="width:${(c[1]+c[2])/mx*100}%"><i style="flex:${c[1]};background:var(--brand)"></i><i style="flex:${c[2]};background:var(--auto)"></i></div></div>`).join('')+'</div>';
 }
-let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0,missedWin=null;
+let missedMin=ls.g('missedMin')==='today'?'today':(+(ls.g('missedMin'))||20),missedRaw=null,missedToday=null,missedTodayReq=0,missedWin=null,missedWarn='';
 const MIN_CHOICES=['today',5,10,15,20,30,45,60,90,120,180];
 const minsSinceMidnight=()=>{const d=new Date();d.setHours(0,0,0,0);return Math.max(1,Math.ceil((Date.now()-d.getTime())/60000));};
 const minsOf=v=>v==='today'?minsSinceMidnight():v;
@@ -1913,34 +1913,64 @@ function driversIn(it){
   for(const v of Object.values(it)){if(Array.isArray(v)&&v.length&&v[0]&&typeof v[0]==='object'&&(phoneFrom(v[0])||nameFrom(v[0])))return v;}
   return null;
 }
+/* The id that ties together every row of one ride request (the same request goes to many drivers).
+   Found by key name, case-insensitively, at any depth, so a small change in the response shape does not break the count. */
+const UID_RES=[/ride.?request.?status.?unique.?id/i,/request.?status.?unique/i,/request.*unique.?id/i];
+function uidOf(o,depth){
+  depth=depth||0;if(!o||typeof o!=='object'||depth>3)return '';
+  for(const re of UID_RES){for(const [k,v] of Object.entries(o)){if(re.test(k)&&v!=null&&v!==''&&typeof v!=='object')return String(v);}}
+  for(const v of Object.values(o)){if(v&&typeof v==='object'){const r=uidOf(v,depth+1);if(r)return r;}}
+  return '';
+}
+const FARE_KEYS=['estimatedFare','estimatedFareAmount','initialFareAmount','expectedFare','fareAmount','tripFare','totalFare','fare','amount'];
+function fareOf(o,depth){
+  depth=depth||0;if(!o||typeof o!=='object'||depth>2)return 0;
+  const v=num(pick(o,FARE_KEYS));if(v>0)return v;
+  for(const [k,x] of Object.entries(o)){if(/fare/i.test(k)&&x!==''&&typeof x!=='object'&&!/multiplier|percent|distance|count/i.test(k)){const n=num(x);if(n>0)return n;}}
+  for(const x of Object.values(o)){if(x&&typeof x==='object'&&!Array.isArray(x)){const n=fareOf(x,depth+1);if(n>0)return n;}}
+  return 0;
+}
 function groupNotConverted(data){
-  const g=new Map();
+  const reqs=new Map();let withUid=0,rows=0;
   listIn(data).forEach((it,idx)=>{
-    if(!it||typeof it!=='object')return;
+    if(!it||typeof it!=='object')return;rows++;
     const pax=it.passenger||it.passengerDetails||it.customer||{};
     const phone=phoneFrom(pax)||last10(pick(it,['passengerMobileNumber','passengerPhone','customerMobileNumber']));
-    const pid=String(pick(it,['passengerId','passengerIdentifier','passengerID','customerId'])||pick(pax,['id','passengerId'])||phone||('row'+idx));
-    let e=g.get(pid);
-    if(!e){e={pid,name:nameFrom(pax)||String(pick(it,['passengerName','customerName'])||'')||[pick(it,['passengerFirstName']),pick(it,['passengerLastName'])].filter(Boolean).join(' ')||'Passenger',phone,
-      from:'',to:'',date:null,cat:'',requests:0,reqs:new Map(),drivers:new Map()};g.set(pid,e);}
+    const pidRaw=String(pick(it,['passengerId','passengerIdentifier','passengerID','customerId'])||pick(pax,['id','passengerId'])||'');
+    const name=nameFrom(pax)||String(pick(it,['passengerName','customerName'])||'')||[pick(it,['passengerFirstName']),pick(it,['passengerLastName'])].filter(Boolean).join(' ');
     const tRaw=pick(it,['createdOn','requestedOn','rideRequestedOn','createdDate','requestTime','requestedTime','timestamp','createdAt']);
     let d=tRaw?new Date(tRaw):null;if(d&&isNaN(d))d=null;
     const from=String(pick(it,['fromLocation','pickupLocation','fromAddressName','from'])||''),to=String(pick(it,['toLocation','dropLocation','toAddressName','to'])||'');
-    // one ride request = one count, however many drivers it was sent to
-    const uid=pick(it,['rideRequestStatusUniqueId','rideRequestStatusUniqueID','rideRequestStatusUniqueIdentifier','RideRequestStatusUniqueId']);
+    // one ride request = one count: keyed by rideRequestStatusUniqueId, and only then by weaker ids
+    const uid=uidOf(it);if(uid)withUid++;
     const reqId=pick(it,['rideRequestIdentifier','rideRequestId','rideRequestID','requestIdentifier','requestId','rideId','tripId','bookingId']);
-    const rkey=String(uid||reqId||(tRaw+'|'+from+'|'+to));
-    let r=e.reqs.get(rkey);
-    if(!r){r={date:d,from,to,drivers:new Map()};e.reqs.set(rkey,r);}
+    const who=pidRaw||phone||name||('row'+idx);
+    const rkey=uid?'u:'+uid:reqId?'i:'+reqId:'t:'+who+'|'+String(tRaw).slice(0,16)+'|'+from+'|'+to;
+    let r=reqs.get(rkey);
+    if(!r){r={pid:pidRaw,phone,name,date:d,from,to,cat:'',drivers:new Map(),key:rkey};reqs.set(rkey,r);}
+    r.pid=r.pid||pidRaw;r.phone=r.phone||phone;r.name=r.name||name;
     if(!r.date&&d)r.date=d;
-    if(!e.date||(d&&d>e.date)){e.date=d||e.date;e.from=from||e.from;e.to=to||e.to;}
-    e.cat=e.cat||String(pick(it,['vehicleCategory','vehicleType','category','rideCategory'])||'');
+    r.cat=r.cat||String(pick(it,['vehicleCategory','vehicleType','category','rideCategory'])||'');
+    r.fare=r.fare||fareOf(it);
     const list=driversIn(it);
-    const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm,dv={name:nm||'Driver',phone:ph};
-      if(!r.drivers.has(key))r.drivers.set(key,dv);if(!e.drivers.has(key))e.drivers.set(key,dv);};
+    const add=o=>{const nm=nameFrom(o),ph=phoneFrom(o);if(!nm&&!ph)return;const key=ph||nm;if(!r.drivers.has(key))r.drivers.set(key,{name:nm||'Driver',phone:ph});};
     if(list)list.forEach(add);else if(pick(it,['driverMobileNumber','driverName'])){add({name:pick(it,['driverName']),mobileNumber:pick(it,['driverMobileNumber'])});}
   });
+  // group the requests by passenger
+  const g=new Map();
+  reqs.forEach(r=>{
+    const pk=r.pid||r.phone||r.name||('req:'+r.key);
+    let e=g.get(pk);
+    if(!e){e={pid:pk,name:r.name||'Passenger',phone:r.phone,from:'',to:'',date:null,cat:'',fare:0,requests:0,reqs:new Map(),drivers:new Map()};g.set(pk,e);}
+    e.reqs.set(r.key,r);
+    if(!e.name||e.name==='Passenger')e.name=r.name||e.name;e.phone=e.phone||r.phone;
+    e.cat=e.cat||r.cat;
+    if(!e.fare||(r.date&&r.date>=e.date))e.fare=r.fare||e.fare;
+    if(!e.date||(r.date&&r.date>e.date)){e.date=r.date||e.date;e.from=r.from||e.from;e.to=r.to||e.to;}
+    r.drivers.forEach((v,k)=>{if(!e.drivers.has(k))e.drivers.set(k,v);});
+  });
   g.forEach(e=>{e.requests=e.reqs.size;});
+  groupNotConverted.rows=rows;groupNotConverted.withUid=withUid;
   return [...g.values()].sort((x,y)=>(y.date||0)-(x.date||0));
 }
 async function loadMissed(){
@@ -1950,7 +1980,7 @@ async function loadMissed(){
     missedRaw=listIn(data)[0]||null;
     const grouped=groupNotConverted(data);
     MISSED.length=0;grouped.forEach(x=>MISSED.push(x));
-    missedWin={req:grouped.reduce((a,m)=>a+m.requests,0),pax:grouped.length};
+    missedWin={req:grouped.reduce((a,m)=>a+m.requests,0),pax:grouped.length};missedWarn=groupNotConverted.rows&&groupNotConverted.withUid<groupNotConverted.rows?(groupNotConverted.withUid?'Some rows have no rideRequestStatusUniqueId, so the count may be high.':'rideRequestStatusUniqueId was not found in the response, so rows are grouped by passenger, route and minute. Check the fields below.'):'';
     if(missedMin==='today'){missedToday=grouped.length;missedTodayReq=grouped.reduce((a,m)=>a+m.requests,0);}
     el.innerHTML=missedLive();
     if(missedMin!=='today')loadMissedToday();
@@ -1962,11 +1992,11 @@ const missedHead=()=>todayBox()+`<div class="card" style="margin-top:10px;displa
 function missedLive(){
   const raw=missedRaw?`<details class="sect rawf"><summary>First record fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-word;font-size:11px;margin:8px 0 0">${esc(JSON.stringify(missedRaw,null,1).slice(0,3500))}</pre></details>`:'';
   if(!MISSED.length)return missedHead()+empty('check','No missed requests '+(missedMin==='today'?'today':'in the last '+missedMin+' minutes'))+raw;
-  return missedHead()+`<div class="mini-h" style="margin-top:14px">${MISSED.reduce((a,m)=>a+m.requests,0)} missed request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
+  return missedHead()+(missedWarn?`<div class="err" style="margin:10px 0">${esc(missedWarn)}</div>`:'')+`<div class="mini-h" style="margin-top:14px">${MISSED.reduce((a,m)=>a+m.requests,0)} missed request${MISSED.reduce((a,m)=>a+m.requests,0)===1?'':'s'} · ${MISSED.length} passenger${MISSED.length===1?'':'s'} · ${winLabel(missedMin)}</div>`+MISSED.map((m,i)=>`<div class="trip" style="cursor:default">
    <div class="trow"><div class="drow" style="gap:10px"><div class="avatar">${esc(initials(m.name||'P'))}</div><div style="min-width:0"><div class="dname" style="font-size:16px">${esc(m.name)}</div>
      <div class="muted" style="font-size:12px">${m.phone?fmtPhone(m.phone):'No number'}${m.requests>1?' · '+m.requests+' missed requests':''}</div></div></div><div class="qc">${m.phone?contactBtns(m.phone,esc(m.name),true):''}</div></div>
    ${m.from||m.to?`<div class="tl"><div class="p"><i></i><u></u><i class="e"></i></div><div class="t"><div>${esc(m.from||'—')}</div><div>${esc(m.to||'—')}</div></div></div>`:''}
-   <div class="tfoot"><span>${m.date?fmtDate(m.date):'—'}</span><span>${esc(m.cat)}</span></div>
+   <div class="tfoot"><span>${m.date?fmtDate(m.date):'—'}</span><span class="num">${esc(m.cat)}${m.fare?(m.cat?' · ':'')+'<b style="color:var(--ink)">₹'+m.fare.toFixed(2)+'</b>':''}</span></div>
    <button class="btn" data-sent="${i}" style="width:100%;margin-top:10px">${ic('drivers',18)}${m.drivers.size?(m.requests>1?m.requests+' requests · sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s'):'Sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+' · none accepted'):'No driver details'}</button></div>`).join('')+raw;
 }
 function bindMissed(){
@@ -1988,8 +2018,8 @@ function sentSheet(m){
     sentEl.onclick=e=>{if(e.target.id==='sentSheet'||e.target.closest('[data-closesent]'))closeSent();};}
   const reqs=[...m.reqs.values()].sort((x,y)=>(y.date||0)-(x.date||0));
   const rows=ds=>ds.map(d=>`<div class="row"><span class="l"><b style="color:var(--ink)">${esc(d.name)}</b></span><span class="r num">${d.phone?fmtPhone(d.phone):'—'}</span></div>`).join('')||'<div class="muted" style="padding:12px 0">No driver details were returned.</div>';
-  const body=reqs.length>1?reqs.map((r,i)=>`<div class="mini-h" style="margin-top:12px">Request ${reqs.length-i}${r.date?' · '+fmtDate(r.date):''} · sent to ${r.drivers.size} driver${r.drivers.size===1?'':'s'}</div>${rows([...r.drivers.values()])}`).join(''):rows([...m.drivers.values()]);
-  sentEl.innerHTML=`<div class="sentbox"><div class="trow" style="margin-bottom:4px"><div><b style="font-family:var(--f-head);font-size:17px">${reqs.length>1?reqs.length+' missed requests':'Request sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')}</b><div class="muted" style="font-size:12px">For ${esc(m.name)} · none of the drivers took the ride</div></div>
+  const body=reqs.length>1?reqs.map((r,i)=>`<div class="mini-h" style="margin-top:12px">Request ${reqs.length-i}${r.date?' · '+fmtDate(r.date):''} · sent to ${r.drivers.size} driver${r.drivers.size===1?'':'s'}${r.fare?' · ₹'+r.fare.toFixed(2):''}</div>${rows([...r.drivers.values()])}`).join(''):rows([...m.drivers.values()]);
+  sentEl.innerHTML=`<div class="sentbox"><div class="trow" style="margin-bottom:4px"><div><b style="font-family:var(--f-head);font-size:17px">${reqs.length>1?reqs.length+' missed requests':'Request sent to '+m.drivers.size+' driver'+(m.drivers.size===1?'':'s')+(m.fare?' · ₹'+m.fare.toFixed(2):'')}</b><div class="muted" style="font-size:12px">For ${esc(m.name)} · none of the drivers took the ride</div></div>
     <button class="ib" data-closesent aria-label="Close">${ic('close')}</button></div>${body}</div>`;
   sentEl.classList.add('on');
 }
