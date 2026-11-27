@@ -1670,7 +1670,7 @@ const FN={
   STAGING:{}
 };
 /* mapping confirmed by probing the function apps: sign-in and notifications are in platform, add-on routes are in admin */
-const ROUTES=[[/^\/(Auth|Notification)\//i,'platform'],[/^\/(CustomerCare|Reports)\//i,'admin'],[/^\/Vehicle\/AddOn\//i,'admin'],[/^\/Driver\//i,'driver'],[/^\/Vehicle\//i,'vehicle'],[/^\/Passenger\//i,'passenger']];
+const ROUTES=[[/^\/(Auth|Notification|Config)\//i,'platform'],[/^\/(CustomerCare|Reports)\//i,'admin'],[/^\/Vehicle\/AddOn\//i,'admin'],[/^\/Driver\//i,'driver'],[/^\/Vehicle\//i,'vehicle'],[/^\/Passenger\//i,'passenger']];
 function baseFor(path){
   if(DIRECT_FUNCTIONS){for(const [re,k] of ROUTES){if(re.test(path)){const b=FN[ENV]&&FN[ENV][k];if(b)return b;}}}
   return APIM[ENV];
@@ -2050,7 +2050,8 @@ function lmapInit(){
 /* Drivers come from /CustomerCare/Drivers/InArea for whatever part of the map is on screen, and are fetched again after every pan or zoom. */
 let AREA=[],areaCount=0,areaSeq=0,areaTimer=null,areaErr='';
 const areaDriver=a=>{const ph=last10(a.mobileNumber);return DRIVERS.find(d=>!d.stub&&((ph&&d.phone===ph)||(a.driverId&&d.id===a.driverId)))||null;};
-const visCars=()=>AREA.filter(a=>mapCat==='All'||(a.d&&a.d.cat===mapCat));
+const areaCat=x=>/auto/i.test(String(x.drivingVehicleType||''))||/auto/i.test(String(x.vehicleCategory||''))?'Auto':catOf(x.vehicleCategory||x.drivingVehicleType);
+const visCars=()=>AREA.filter(a=>mapCat==='All'||a.cat===mapCat);
 async function loadArea(){
   const m=window.lmap,b=m&&m.getBounds&&m.getBounds();if(!b)return;
   const seq=++areaSeq;
@@ -2060,7 +2061,7 @@ async function loadArea(){
     if(seq!==areaSeq)return;   // a newer request has been sent since
     const list=r&&Array.isArray(r.drivers)?r.drivers:[];
     AREA=list.map(x=>{const c=x&&x.coordinates;if(!Array.isArray(c)||c.length<2)return null;const lon=num(c[0]),lat=num(c[1]);if(!lat||!lon)return null;
-      const o={key:String(x.driverId||x.mobileNumber||lat+','+lon),lat,lon,heading:x.heading,phone:last10(x.mobileNumber),driverId:x.driverId};o.d=areaDriver(x);if(o.d)o.key=o.d.id;return o;}).filter(Boolean);
+      const o={key:String(x.driverId||x.mobileNumber||lat+','+lon),lat,lon,heading:x.heading,phone:last10(x.mobileNumber),driverId:x.driverId,cat:areaCat(x),vtype:String(x.drivingVehicleType||'')};o.d=areaDriver(x);if(o.d)o.key=o.d.id;return o;}).filter(Boolean);
     areaCount=num(r&&r.count)||AREA.length;areaErr='';
   }catch(e){if(seq!==areaSeq)return;areaErr=e.message;oops(e);}
   catFilters();drawCars();
@@ -2069,7 +2070,7 @@ function areaSheet(a,loading,err){
   selected=a.key;
   $$('.car').forEach(c=>c.classList.toggle('sel',c.id==='car-'+a.key));
   $('#sheet').innerHTML=`<button class="x" aria-label="Close" id="sheetX">${ic('close')}</button>
-   <div class="drow"><div class="avatar">${ic('car',22)}</div><div><div class="dname">Driver</div><div class="muted" style="font-size:12px;margin-top:4px">${loading?'Loading driver details…':err?esc(err):'Details are not available for this driver'}</div></div></div>
+   <div class="drow"><div class="avatar">${ic('car',22)}</div><div><div class="dname">Driver</div><div style="margin-top:4px">${badge(a.cat,CATS[a.cat].c)}</div><div class="muted" style="font-size:12px;margin-top:4px">${loading?'Loading driver details…':err?esc(err):''}</div></div></div>
    <div class="kv"><span class="k">Driver ID</span><span class="v num" style="font-size:12px;word-break:break-all">${esc(a.driverId||'—')}</span>${a.phone?`<span class="k">Mobile</span><span class="v">${fmtPhone(a.phone)}</span>`:''}<span class="k">Location</span><span class="v num">${a.lat.toFixed(5)}, ${a.lon.toFixed(5)}</span></div>
    <div class="btns" style="align-items:stretch">${a.phone?`<a class="btn" href="tel:+91${a.phone}">${ic('phone',18)}Call</a>`:''}<a class="btn pri" href="https://www.google.com/maps/search/?api=1&query=${a.lat.toFixed(6)},${a.lon.toFixed(6)}" target="_blank" rel="noopener">${ic('map',18)}Open in Maps</a></div>`;
   $('#sheet').classList.add('open');
@@ -2078,9 +2079,11 @@ function areaSheet(a,loading,err){
 async function lookupArea(a){
   const old=a.key;areaSheet(a,true);
   try{
-    let det=await GET('/Driver/Get/'+a.driverId+'/Kerala');if(Array.isArray(det))det=det[0];
+    let det=null;
+    if(a.phone){try{det=await GET('/CustomerCare/GetByMobileNumber/'+a.phone);if(Array.isArray(det))det=det[0];}catch(e){}}
+    if(!det||typeof det!=='object'){det=await GET('/Driver/Get/'+a.driverId+'/Kerala');if(Array.isArray(det))det=det[0];}
     if(!det||typeof det!=='object')throw new Error('No details were returned for this driver.');
-    const md=mapDriver(det,'Approved');upsert(md);
+    const md=mapDriver(det,'Approved');md.cat=a.cat||md.cat;upsert(md);
     const d=DRIVERS.find(x=>x.id===md.id)||md;
     a.d=d;a.key=d.id;
     if(selected===old){openSheet(d.id);}
@@ -2089,7 +2092,7 @@ async function lookupArea(a){
 }
 OV.catFilters=function(){
   const items=['All',...Object.keys(CATS)];
-  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?AREA.length:AREA.filter(a=>a.d&&a.d.cat===c).length}</span></button>`).join('');
+  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?AREA.length:AREA.filter(a=>a.cat===c).length}</span></button>`).join('');
 };
 OV.drawCars=function(){
   lmapInit();const m=window.lmap;if(!m)return;
@@ -2097,8 +2100,8 @@ OV.drawCars=function(){
   const vis=visCars();
   $('#liveCount').textContent=areaErr&&!AREA.length?'Could not load':vis.length+(areaCount>AREA.length||AREA.length>=200?'+':'')+' in view';
   vis.forEach(a=>{
-    const col=a.d?CATS[a.d.cat].c:'#6B7280';
-    const ic2=L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="car ${selected===a.key?'sel':''}" id="car-${esc(a.key)}" style="--c:${col}"><button aria-label="${a.d?esc(a.d.name):'Driver'}">${ic('car',22)}</button></div>`});
+    const col='#16A34A';
+    const ic2=L.divIcon({className:'lcar',iconSize:[40,40],iconAnchor:[20,20],html:`<div class="car ${selected===a.key?'sel':''}" id="car-${esc(a.key)}" style="--c:${col}"><button aria-label="${a.d?esc(a.d.name):'Driver'}, ${a.cat}">${ic('car',22)}</button></div>`});
     lcars.push(L.marker([a.lat,a.lon],{icon:ic2}).on('click',()=>a.d?openSheet(a.d.id):lookupArea(a)).addTo(m));
   });
 };
@@ -2326,18 +2329,55 @@ function airLive(){
     catch(e){fsOpen({type:'error',title:'Error',desc:e.message});}
   };
 }
-let fm={vt:'Car',act:'Increase'};
+let fm={vt:'Car',act:'Increase'},fmCfg=null,fmState='load';
+/* Finds the overall fare multiplier for a vehicle type in /Config/Get, whatever the nesting: a key like overall…Multiplier whose
+   key name, parent names or own type/name field mention the vehicle type; the selected location is preferred when the data has one per location. */
+function fmFind(vt,loc){
+  const out=[],t=vt.toLowerCase();
+  const walk=(o,path,pk)=>{
+    if(Array.isArray(o)){o.forEach(x=>walk(x,path,pk));return;}
+    if(!o||typeof o!=='object')return;
+    const own=[o.vehicleType,o.vehicleCategory,o.category,o.type,o.name].filter(x=>typeof x==='string').join(' ').toLowerCase();
+    const p2=String(o.partitionKey||o.location||o.city||pk||'').toLowerCase();
+    for(const [k,v] of Object.entries(o)){
+      if(v&&typeof v==='object'){walk(v,path+'.'+k,p2);continue;}
+      if(/overall.*multiplier/i.test(k)&&v!==''&&v!=null&&!isNaN(parseFloat(v)))out.push({v:parseFloat(v),hay:(path+'.'+k+' '+own).toLowerCase(),pk:p2});
+    }
+  };
+  walk(fmCfg,'','');
+  let m=out.filter(c=>c.hay.includes(t)||(t==='car'&&/cab|taxi/.test(c.hay)));
+  if(loc){const l=loc.toLowerCase(),byLoc=m.filter(c=>c.pk&&c.pk.includes(l));if(byLoc.length)m=byLoc;}
+  return m.length?m[0].v:null;
+}
+function fmCurrent(){
+  const el=$('#fmCur');if(!el)return;
+  let h;
+  if(fmState==='load')h='<span class="muted">Loading…</span>';
+  else if(fmState==='err')h='<span class="muted">Could not load the current multiplier</span>';
+  else{
+    const v=fmFind(fm.vt,$('#fmLoc')&&$('#fmLoc').value);
+    if(v==null)h=`<span class="muted">Not found in the response</span><details style="margin-top:6px"><summary class="muted" style="font-size:12px">Response fields (for support)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">${esc(JSON.stringify(fmCfg,null,1).slice(0,1500))}</pre></details>`;
+    else{const r=parseFloat(v.toFixed(2)),d=Math.round((r-1)*100);h=`<b style="font-family:var(--f-head);font-size:30px">${r}x</b> <span class="muted" style="font-size:13px">${d===0?'no change':(d>0?'+':'')+d+'% on the base fare'}</span>`;}
+  }
+  el.innerHTML=h;$('#fmCurLbl').textContent='Current '+fm.vt+' multiplier';
+}
+async function fmLoadCfg(){
+  fmState='load';fmCurrent();
+  try{fmCfg=await GET('/Config/Get');fmState='ok';}catch(e){fmState='err';oops(e);}
+  fmCurrent();
+}
 function fareLive(){
   const c=$('#surgeNote').closest('.card');if(c)c.style.display='none';
-  $('#fareList').innerHTML=`<div class="card"><div class="mini-h" style="margin-top:0">Vehicle type</div><div class="seg" id="fmVt"><button data-v="Car" class="on">Car</button><button data-v="Auto">Auto</button></div>
+  $('#fareList').innerHTML=`<div class="card" style="margin-bottom:12px"><div class="muted" id="fmCurLbl" style="font-size:12px;font-weight:700">Current Car multiplier</div><div id="fmCur" style="margin-top:4px"></div></div><div class="card"><div class="mini-h" style="margin-top:0">Vehicle type</div><div class="seg" id="fmVt"><button data-v="Car" class="on">Car</button><button data-v="Auto">Auto</button></div>
     <div class="mini-h">Change</div><div class="seg" id="fmAct"><button data-v="Increase" class="on">Increase</button><button data-v="Decrease">Decrease</button></div>
     <div class="mini-h">Location</div><div class="field" style="box-shadow:none;background:var(--chip)"><select id="fmLoc" class="sel"><option>Loading…</option></select></div>
     <div class="mini-h">Percentage (0 to 99)</div>${inputBox('fmPct','e.g. 20').replace('margin-top:10px','margin-top:0')}${inputBox('fmAuth','Auth code','password')}<div class="muted" id="fmNote" style="font-size:12px;margin-top:10px"></div></div>`;
   const note=()=>{const n=parseInt($('#fmPct').value,10);$('#fmNote').textContent=isNaN(n)?'':`Multiplier sent: ${parseFloat((fm.act==='Increase'?1+n/100:1-n/100).toFixed(2))}x`;};
-  $('#fmVt').onclick=e=>{const b=e.target.closest('button');if(!b)return;fm.vt=b.dataset.v;$$('#fmVt button').forEach(x=>x.classList.toggle('on',x===b));};
+  $('#fmVt').onclick=e=>{const b=e.target.closest('button');if(!b)return;fm.vt=b.dataset.v;$$('#fmVt button').forEach(x=>x.classList.toggle('on',x===b));fmCurrent();};
   $('#fmAct').onclick=e=>{const b=e.target.closest('button');if(!b)return;fm.act=b.dataset.v;$$('#fmAct button').forEach(x=>x.classList.toggle('on',x===b));note();};
   $('#fmPct').oninput=e=>{e.target.value=e.target.value.replace(/\D/g,'');note();};
-  GET('/CustomerCare/GetConfigurationPartitionKeys').then(j=>{const l=arr(j).map(String);$('#fmLoc').innerHTML=l.map(x=>`<option>${esc(x)}</option>`).join('')||'<option value="">No locations</option>';}).catch(e=>{$('#fmLoc').innerHTML='<option value="">Unavailable</option>';oops(e);});
+  GET('/CustomerCare/GetConfigurationPartitionKeys').then(j=>{const l=arr(j).map(String);$('#fmLoc').innerHTML=l.map(x=>`<option>${esc(x)}</option>`).join('')||'<option value="">No locations</option>';const e=l.find(x=>/^ernakulam$/i.test(x))||l.find(x=>/ernakulam/i.test(x));if(e)$('#fmLoc').value=e;fmCurrent();$('#fmLoc').onchange=fmCurrent;}).catch(e=>{$('#fmLoc').innerHTML='<option value="">Unavailable</option>';oops(e);});
+  fm.vt='Car';fmLoadCfg();
   $('#fareSave').textContent='Apply multiplier';
   $('#fareSave').onclick=async()=>{
     const loc=$('#fmLoc').value,n=parseInt($('#fmPct').value,10);
@@ -2346,7 +2386,7 @@ function fareLive(){
     if(!$('#fmAuth').value.trim())return fsOpen({type:'error',title:'Validation error',desc:'Auth code is required to apply changes.'});
     const pct=parseFloat((fm.act==='Increase'?1+n/100:1-n/100).toFixed(2)).toString();
     try{await POST('/CustomerCare/UpdateOverAllMultiplier/'+fm.vt+'/'+pct+'/'+encodeURIComponent(loc),{authCode:$('#fmAuth').value});
-      fsOpen({type:'success',title:'Success',desc:`${fm.vt} fare multiplier updated by ${fm.act==='Increase'?'+':'-'}${n}% (${pct}) for ${esc(loc)} successfully.`,btn:'Done'});$('#fmAuth').value='';}
+      fsOpen({type:'success',title:'Success',desc:`${fm.vt} fare multiplier updated by ${fm.act==='Increase'?'+':'-'}${n}% (${pct}) for ${esc(loc)} successfully.`,btn:'Done'});$('#fmAuth').value='';fmLoadCfg();}
     catch(e){fsOpen({type:'error',title:'Error',desc:e.message});}
   };
 }
