@@ -989,7 +989,7 @@ $('#repSeg').onclick=e=>{const b=e.target.closest('button');if(b)setReport(b.dat
 let mapCat='All',selected=null,mapTimer=null;
 function catFilters(){
   const items=['All',...Object.keys(CATS)];
-  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?live().length:live().filter(d=>d.cat===c).length}</span></button>`).join('');
+  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c==='PremiumSUV'?'Premium SUV':c}<span class="ct">${c==='All'?live().length:live().filter(d=>d.cat===c).length}</span></button>`).join('');
 }
 $('#catFilters').onclick=e=>{const b=e.target.closest('[data-cat]');if(!b)return;mapCat=b.dataset.cat;closeSheet();catFilters();drawCars();};
 const place=d=>({l:(d.x/360*100)+'%',t:(d.y/600*100)+'%'});
@@ -1700,8 +1700,9 @@ const arr=d=>Array.isArray(d)?d:d&&Array.isArray(d.data)?d.data:d&&Array.isArray
 const safeUrl=u=>/^https?:\/\//i.test(String(u||''))?esc(u):'';
 const iso=v=>v?String(v).slice(0,10):'';
 CATS.Auto=CATS.Auto||{c:'var(--auto)'};
+CATS.PremiumSUV=CATS.PremiumSUV||{c:'#A855F7'};
 const catOf=v=>{const s=String(v||'').trim();const k=Object.keys(CATS).find(x=>x.toLowerCase()===s.toLowerCase());if(k)return k;
-  const l=s.toLowerCase();if(/auto|rick/.test(l))return 'Auto';if(/suv|muv|innova|ertiga|xuv|carens|crysta/.test(l))return 'SUV';
+  const l=s.toLowerCase();if(/auto|rick/.test(l))return 'Auto';if(/premium.*(suv|muv)|(suv|muv).*premium/.test(l.replace(/[\s_-]/g,'')))return 'PremiumSUV';if(/suv|muv|innova|ertiga|xuv|carens|crysta/.test(l))return 'SUV';
   if(/sedan|dzire|aura|amaze|etios|ciaz|verna|city/.test(l))return 'Sedan';return 'Mini';};
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 let lastErr=0;const oops=e=>{if(Date.now()-lastErr>4000){lastErr=Date.now();toast((e&&e.message)||'Something went wrong');}};
@@ -2103,7 +2104,7 @@ async function lookupArea(a){
 }
 OV.catFilters=function(){
   const items=['All',...Object.keys(CATS)];
-  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c}<span class="ct">${c==='All'?AREA.length:AREA.filter(a=>a.cat===c).length}</span></button>`).join('');
+  $('#catFilters').innerHTML=items.map(c=>`<button class="pill ${c===mapCat?'on':''}" data-cat="${c}">${c==='All'?'':`<i style="background:${CATS[c].c}"></i>`}${c==='PremiumSUV'?'Premium SUV':c}<span class="ct">${c==='All'?AREA.length:AREA.filter(a=>a.cat===c).length}</span></button>`).join('');
 };
 OV.drawCars=function(){
   lmapInit();const m=window.lmap;if(!m)return;
